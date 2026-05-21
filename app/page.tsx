@@ -178,14 +178,12 @@ function useCursor() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RosterTile — individual student tile with per-hover letter animation
+// RosterTile — Goodman Gallery–style full-width typographic row
 // ─────────────────────────────────────────────────────────────────────────────
 function RosterTile({
-  student, cardBg, hoverBg, accentColor, headingColor, bodyColor, onClick,
+  student, onClick,
 }: {
   student: Student;
-  cardBg: string; hoverBg: string; accentColor: string;
-  headingColor: string; bodyColor: string;
   onClick: () => void;
 }) {
   const [hoverCount, setHoverCount] = React.useState(0);
@@ -195,30 +193,43 @@ function RosterTile({
     <button
       onClick={onClick}
       style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-        justifyContent: 'flex-end',
-        padding: '36px 32px',
-        minHeight: '160px',
-        backgroundColor: isHovered ? hoverBg : cardBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%',
+        padding: '22px 0',
+        backgroundColor: isHovered ? '#000000' : '#ffffff',
         border: 'none',
-        borderLeft: `3px solid ${isHovered ? accentColor : 'transparent'}`,
-        boxShadow: isHovered
-          ? '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)'
-          : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+        borderTop: '1px solid #000000',
         cursor: 'none',
         textAlign: 'left',
-        transition: 'background-color 180ms ease, border-color 180ms ease, box-shadow 200ms ease, transform 180ms ease',
-        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
-        width: '100%',
+        transition: 'background-color 280ms cubic-bezier(0.4,0,0.2,1)',
       }}
       onMouseEnter={() => { setIsHovered(true); setHoverCount(c => c + 1); }}
       onMouseLeave={() => setIsHovered(false)}>
-      <span style={{ fontSize: '1.4rem', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.02em', color: headingColor, display: 'block' }}>
-        <AnimatedText text={student.name} animKey={hoverCount} stagger={22} />
+      {/* Name */}
+      <span style={{
+        fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
+        fontWeight: 400,
+        lineHeight: 1,
+        letterSpacing: '-0.025em',
+        color: isHovered ? '#ffffff' : '#000000',
+        transition: 'color 280ms cubic-bezier(0.4,0,0.2,1)',
+        display: 'block',
+      }}>
+        <AnimatedText text={student.name} animKey={hoverCount} stagger={18} />
       </span>
+      {/* Grade — right side */}
       {student.grade && (
-        <span style={{ fontSize: 11, fontWeight: 600, marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.08em', color: bodyColor, opacity: 0.4 }}>
-          {student.grade} grade
+        <span style={{
+          fontSize: '0.625rem',
+          fontWeight: 600,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: isHovered ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)',
+          transition: 'color 280ms cubic-bezier(0.4,0,0.2,1)',
+          flexShrink: 0,
+          marginLeft: '2rem',
+        }}>
+          {student.grade}
         </span>
       )}
     </button>
@@ -1464,88 +1475,98 @@ export default function Page() {
           </div>
         )}
 
-        {/* ── Grid of tiles ── */}
-        <div className="max-w-3xl mx-auto px-8 py-12">
+        {/* ── Gallery list ── */}
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '64px 48px' }}>
 
           {/* Header row */}
-          <div className="flex items-end justify-between mb-10">
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 56 }}>
             <div>
-              <h1 className="font-black tracking-tight leading-none"
-                style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', color: designTheme.main.heading }}>
+              <p style={{
+                fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em',
+                textTransform: 'uppercase', color: '#000', opacity: 0.35, marginBottom: 10,
+              }}>
+                EF Dashboard
+              </p>
+              <h1 style={{
+                fontSize: 'clamp(2.4rem, 5vw, 3.6rem)', fontWeight: 300,
+                letterSpacing: '-0.04em', lineHeight: 1, color: '#000', margin: 0,
+              }}>
                 Students
               </h1>
-              <p className="text-sm mt-2" style={{ color: designTheme.main.body, opacity: 0.5 }}>
-                Select a name
-              </p>
             </div>
             {/* Theme switcher */}
-            <div className="flex flex-col items-end gap-2">
-              <p className="text-[10px] uppercase tracking-widest font-semibold"
-                style={{ color: designTheme.main.body, opacity: 0.4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+              <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#000', opacity: 0.35 }}>
                 Theme
               </p>
-              <div className="flex gap-1.5">
+              <div style={{ display: 'flex', gap: 6 }}>
                 {DESIGN_THEMES.map((t: DesignTheme) => (
                   <button key={t.id} onClick={() => setDesignTheme(t)} title={t.name}
-                    className="w-5 h-5 transition-transform hover:scale-110"
                     style={{
+                      width: 18, height: 18,
                       backgroundColor: t.sidebar.bg,
+                      border: 'none',
                       outline: designTheme.id === t.id ? `2px solid ${t.main.accent}` : '2px solid transparent',
                       outlineOffset: '2px',
+                      cursor: 'none',
+                      transition: 'transform 150ms ease',
                     }} />
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Name tiles */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px', marginBottom: '2rem' }}>
+          {/* Name list — full-width typographic rows */}
+          <div style={{ borderBottom: '1px solid #000' }}>
             {students.map(student => (
               <RosterTile
                 key={student.id}
                 student={student}
-                cardBg={designTheme.main.card}
-                hoverBg={`${designTheme.main.btn}08`}
-                accentColor={designTheme.main.accent}
-                headingColor={designTheme.main.heading}
-                bodyColor={designTheme.main.body}
                 onClick={() => { setFocusedRosterId(student.id); setRosterHovered(false); }}
               />
             ))}
 
-            {/* Add student tile */}
+            {/* Add student row */}
             {showAddStudent ? (
-              <div style={{
-                padding: '20px 24px',
-                backgroundColor: designTheme.main.card,
-                border: `1px solid ${designTheme.main.cardBorder}`,
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+              <div style={{ borderTop: '1px solid #000', padding: '24px 0' }}>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                   <input
                     autoFocus
-                    className="w-full outline-none border px-2.5 py-2 text-sm"
-                    style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.bg, color: designTheme.main.body }}
+                    style={{
+                      flex: 1, border: 'none', borderBottom: '1px solid #000',
+                      padding: '6px 0', fontSize: '1rem', background: 'transparent',
+                      color: '#000', outline: 'none',
+                    }}
                     placeholder="Full name"
                     value={newName}
                     onChange={e => setNewName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addStudent()} />
                   <input
-                    className="w-full outline-none border px-2.5 py-2 text-sm"
-                    style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.bg, color: designTheme.main.body }}
-                    placeholder="Grade (e.g. 8th)"
+                    style={{
+                      width: 120, border: 'none', borderBottom: '1px solid #000',
+                      padding: '6px 0', fontSize: '1rem', background: 'transparent',
+                      color: '#000', outline: 'none',
+                    }}
+                    placeholder="Grade"
                     value={newGrade}
                     onChange={e => setNewGrade(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addStudent()} />
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 16 }}>
                   <button onClick={addStudent}
-                    className="flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-opacity hover:opacity-80"
-                    style={{ backgroundColor: designTheme.main.btn, color: designTheme.main.btnText }}>
+                    style={{
+                      fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em',
+                      textTransform: 'uppercase', color: '#fff', background: '#000',
+                      border: 'none', padding: '8px 20px', cursor: 'none',
+                    }}>
                     Add
                   </button>
                   <button onClick={() => setShowAddStudent(false)}
-                    className="px-3 text-xs"
-                    style={{ color: designTheme.main.body, opacity: 0.5 }}>
+                    style={{
+                      fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em',
+                      textTransform: 'uppercase', color: '#000', background: 'transparent',
+                      border: 'none', opacity: 0.4, cursor: 'none',
+                    }}>
                     Cancel
                   </button>
                 </div>
@@ -1554,20 +1575,20 @@ export default function Page() {
               <button
                 onClick={() => setShowAddStudent(true)}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '36px 32px',
-                  minHeight: '160px',
-                  backgroundColor: 'transparent',
-                  border: `1.5px dashed ${designTheme.main.cardBorder}`,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '22px 0',
+                  backgroundColor: 'transparent', border: 'none',
+                  borderTop: '1px solid #000',
                   cursor: 'none',
-                  transition: 'border-color 150ms ease',
+                  opacity: 0.35,
+                  transition: 'opacity 200ms ease',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = designTheme.main.btn)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = designTheme.main.cardBorder)}>
-                <Plus size={14} style={{ color: designTheme.main.body, opacity: 0.4 }} />
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.35')}>
+                <Plus size={12} strokeWidth={2} style={{ color: '#000' }} />
                 <span style={{
-                  fontSize: 12, fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: '0.08em', color: designTheme.main.body, opacity: 0.4,
+                  fontSize: '0.625rem', fontWeight: 700,
+                  letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000',
                 }}>
                   Add student
                 </span>
