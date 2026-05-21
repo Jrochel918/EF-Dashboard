@@ -1186,7 +1186,7 @@ function ThemeCustomizer({ theme, onSave }: { theme: StudentTheme; onSave: (t: S
 
 // ── Main App ───────────────────────────────────────────────────────────────────
 
-type View = 'roster' | 'student' | 'assessment' | 'personality';
+type View = 'roster' | 'student' | 'assessment' | 'personality' | 'student-login';
 type FocusTab = 'pomodoro' | 'chunking';
 type StudentTab = 'overview' | 'growth' | 'drills' | 'space';
 
@@ -1212,6 +1212,38 @@ export default function Page() {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const radialVisibleRef = useRef(false);
   const cursor = useCursor();
+
+  // ── Student login / mode ─────────────────────────────────────────────────────
+  const [studentMode, setStudentMode] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
+  // ── Google Calendar integration ──────────────────────────────────────────────
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [gcalAdding, setGcalAdding] = useState(false);
+  const [gcalSuccess, setGcalSuccess] = useState(false);
+  const gcalClientRef = useRef<{ requestAccessToken: () => void } | null>(null);
+
+  // Load Google Identity Services once on mount
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const g = (window as any).google;
+      if (!g) return;
+      gcalClientRef.current = g.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/calendar.events',
+        callback: (resp: { access_token: string }) => setGoogleToken(resp.access_token),
+      });
+    };
+    document.head.appendChild(s);
+    return () => { try { document.head.removeChild(s); } catch {} };
+  }, []);
 
   // Clear timer & hide radial whenever focus changes
   useEffect(() => {
@@ -1265,6 +1297,52 @@ export default function Page() {
     pendingNavRef.current = callback;
     setCurtainPhase('covering');
   }
+
+  // ── Google Calendar: direct event insert (no popup) ──────────────────────────
+  async function addAllToGoogleCalendar(items: Obligation[]) {
+    if (!googleToken) {
+      gcalClientRef.current?.requestAccessToken();
+      return;
+    }
+    const withDate = items.filter(ob => ob.plannedDate && !ob.completed);
+    if (withDate.length === 0) return;
+    setGcalAdding(true);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    for (const ob of withDate) {
+      let body: Record<string, unknown>;
+      if (ob.plannedTime) {
+        const [h, m] = ob.plannedTime.split(':').map(Number);
+        const endH = String(h + 1).padStart(2, '0');
+        const mm   = String(m).padStart(2, '0');
+        body = {
+          summary: ob.text,
+          start: { dateTime: `${ob.plannedDate}T${String(h).padStart(2,'0')}:${mm}:00`, timeZone: tz },
+          end:   { dateTime: `${ob.plannedDate}T${endH}:${mm}:00`,                      timeZone: tz },
+        };
+      } else {
+        const nextDay = new Date(ob.plannedDate + 'T12:00:00');
+        nextDay.setDate(nextDay.getDate() + 1);
+        body = {
+          summary: ob.text,
+          start: { date: ob.plannedDate },
+          end:   { date: nextDay.toISOString().slice(0, 10) },
+        };
+      }
+      try {
+        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${googleToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        // Token may have expired
+        if (res.status === 401) { setGoogleToken(null); gcalClientRef.current?.requestAccessToken(); break; }
+      } catch { /* ignore individual failures */ }
+    }
+    setGcalAdding(false);
+    setGcalSuccess(true);
+    setTimeout(() => setGcalSuccess(false), 3500);
+  }
+
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState('');
@@ -1367,6 +1445,86 @@ export default function Page() {
           onBack={() => navigate(() => setView('student'))}
         />
       </EditorialShell>{Curtain}</>
+    );
+  }
+
+  // ── Student login ────────────────────────────────────────────────────────────
+
+  if (view === 'student-login') {
+    const PrivacyModal = () => (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: '#fff', maxWidth: 480, width: '90%', padding: '48px 40px', position: 'relative' }}>
+          <button onClick={() => setShowPrivacy(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4 }}><X size={16} /></button>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.35, marginBottom: 20 }}>Data &amp; Privacy</p>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 300, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 24 }}>How your data is used</h2>
+          <div style={{ fontSize: '0.875rem', lineHeight: 1.75, color: '#444' }}>
+            <p style={{ marginBottom: 12 }}><strong>What we collect</strong> — Your name, grade, session notes, goals, habits, and EF skill ratings entered by your coach during sessions.</p>
+            <p style={{ marginBottom: 12 }}><strong>Google Calendar</strong> — If you connect Google, we add only the events you explicitly approve. We never read or modify your existing calendar data.</p>
+            <p style={{ marginBottom: 12 }}><strong>Google Drive / Docs</strong> — If you sync Docs, we can read writing you share to help your coach track progress. You control which files are shared.</p>
+            <p style={{ marginBottom: 12 }}><strong>Who can see it</strong> — Only you and your coach. Data lives in this browser session and is never sent to any third party.</p>
+            <p><strong>Your rights</strong> — Ask your coach to remove your data any time.</p>
+          </div>
+          <button onClick={() => { setPrivacyAccepted(true); setShowPrivacy(false); }}
+            style={{ marginTop: 32, width: '100%', backgroundColor: '#000', color: '#fff', border: 'none', padding: '12px 0', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            I understand — continue
+          </button>
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#fff', fontFamily: 'var(--font-space-grotesk), sans-serif', cursor: 'none', position: 'relative' }}>
+        {/* Custom cursor */}
+        <div aria-hidden style={{ position: 'fixed', left: cursor.pos.x, top: cursor.pos.y, width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: '50%', backgroundColor: '#000', pointerEvents: 'none', zIndex: 9999 }} />
+
+        {showPrivacy && <PrivacyModal />}
+        {Curtain}
+
+        <div style={{ maxWidth: 440, margin: '0 auto', padding: '80px 24px' }}>
+          {/* Header */}
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.3, marginBottom: 40 }}>EF Dashboard — Student login</p>
+          <h1 style={{ fontSize: 'clamp(2.2rem, 5vw, 3rem)', fontWeight: 300, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 48 }}>Who are you?</h1>
+
+          {/* Student list */}
+          <div style={{ borderBottom: '1px solid #000' }}>
+            {students.map(student => (
+              <button key={student.id}
+                onClick={() => {
+                  if (!privacyAccepted) { setShowPrivacy(true); return; }
+                  setStudentMode(true);
+                  setSelectedStudentId(student.id);
+                  navigate(() => { setView('student'); setStudentTab('overview'); setTabVisible(true); });
+                }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '20px 0', backgroundColor: 'transparent', border: 'none', borderTop: '1px solid #000', cursor: 'none', textAlign: 'left' }}>
+                <span style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 400, letterSpacing: '-0.025em' }}>{student.name}</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.35 }}>{student.grade}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Privacy checkbox */}
+          <div style={{ marginTop: 32, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <input type="checkbox" id="privacy" checked={privacyAccepted} onChange={e => setPrivacyAccepted(e.target.checked)}
+              style={{ marginTop: 2, width: 14, height: 14, flexShrink: 0, cursor: 'pointer' }} />
+            <label htmlFor="privacy" style={{ fontSize: '0.8rem', lineHeight: 1.5, color: '#000', opacity: 0.55 }}>
+              I understand how my data is used.{' '}
+              <button onClick={() => setShowPrivacy(true)} style={{ color: '#000', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'none', padding: 0, fontSize: 'inherit' }}>
+                Read the privacy notice
+              </button>
+            </label>
+          </div>
+
+          {!privacyAccepted && (
+            <p style={{ marginTop: 12, fontSize: '0.7rem', color: '#c00', opacity: 0.7 }}>Please read and accept the privacy notice before logging in.</p>
+          )}
+
+          {/* Back to coach view */}
+          <button onClick={() => navigate(() => setView('roster'))}
+            style={{ marginTop: 48, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ArrowLeft size={11} /> Coach view
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -1662,6 +1820,16 @@ export default function Page() {
               </button>
             )}
           </div>
+
+          {/* Student login link */}
+          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => navigate(() => setView('student-login'))}
+              style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}>
+              Student login →
+            </button>
+          </div>
         </div>
       </EditorialShell>{Curtain}</>
     );
@@ -1714,19 +1882,52 @@ export default function Page() {
     };
     const accent = designTheme.main.accent;
 
+    // Privacy modal (reusable within student view)
+    const PrivacyOverlay = showPrivacy ? (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: '#fff', maxWidth: 480, width: '90%', padding: '48px 40px', position: 'relative' }}>
+          <button onClick={() => setShowPrivacy(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4 }}><X size={16} /></button>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.35, marginBottom: 20 }}>Data &amp; Privacy</p>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 300, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 24 }}>How your data is used</h2>
+          <div style={{ fontSize: '0.875rem', lineHeight: 1.75, color: '#444' }}>
+            <p style={{ marginBottom: 12 }}><strong>What we collect</strong> — Your name, grade, session notes, goals, habits, and EF skill ratings entered by your coach.</p>
+            <p style={{ marginBottom: 12 }}><strong>Google Calendar</strong> — We add only events you explicitly approve. We never read your existing calendar data.</p>
+            <p style={{ marginBottom: 12 }}><strong>Google Drive</strong> — We can read writing you choose to share. You control which files are shared.</p>
+            <p style={{ marginBottom: 12 }}><strong>Who sees it</strong> — Only you and your coach. Nothing is sent to external servers.</p>
+            <p><strong>Your rights</strong> — Ask your coach to remove your data any time.</p>
+          </div>
+          <button onClick={() => setShowPrivacy(false)}
+            style={{ marginTop: 32, width: '100%', backgroundColor: '#000', color: '#fff', border: 'none', padding: '12px 0', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Got it
+          </button>
+        </div>
+      </div>
+    ) : null;
+
     return (
       <><EditorialShell theme={designTheme} className="h-screen flex flex-col overflow-hidden" style={{ background: designTheme.main.bg }}>
+        {PrivacyOverlay}
 
         {/* ── Top header ── */}
         <header style={{ backgroundColor: '#000', borderBottom: '1px solid #222', flexShrink: 0 }}>
           <div className="flex items-center gap-4 px-6 py-4">
-            <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudent.id); setRosterHovered(false); })}
-              className="flex items-center gap-1.5 text-xs flex-shrink-0 transition-opacity"
-              style={{ color: 'rgba(255,255,255,0.5)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}>
-              <ArrowLeft size={13} /> All students
-            </button>
+            {studentMode ? (
+              <button onClick={() => { setStudentMode(false); navigate(() => setView('student-login')); }}
+                className="flex items-center gap-1.5 text-xs flex-shrink-0"
+                style={{ color: 'rgba(255,255,255,0.5)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}>
+                <ArrowLeft size={13} /> Sign out
+              </button>
+            ) : (
+              <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudent.id); setRosterHovered(false); })}
+                className="flex items-center gap-1.5 text-xs flex-shrink-0"
+                style={{ color: 'rgba(255,255,255,0.5)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}>
+                <ArrowLeft size={13} /> All students
+              </button>
+            )}
 
             {/* Avatar */}
             <div className="w-10 h-10 flex items-center justify-center text-base font-black flex-shrink-0"
@@ -1866,64 +2067,74 @@ export default function Page() {
 
                 {/* This week ahead */}
                 <div style={cardStyle}>
-                  <SectionLabel title="Week ahead" sub={weekLabel(thisWeek)} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: designTheme.main.body, opacity: 0.5 }}>What's coming up</p>
-                      <div className="space-y-1.5 mb-2">
-                        {thisWeekObs.map(ob => {
-                          const calUrl = googleCalendarUrl(ob.text, ob.plannedDate, ob.plannedTime);
-                          return (
-                            <div key={ob.id} className="flex items-start gap-2 group">
-                              <div onClick={() => toggleOb(ob.id)} className="flex items-start gap-2 flex-1 cursor-pointer min-w-0">
-                                {ob.completed ? <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0 mt-0.5" /> : <Circle size={15} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 mt-0.5 transition-colors" />}
-                                <div className="min-w-0">
-                                  <p className={`text-sm leading-tight ${ob.completed ? 'line-through text-stone-400' : ''}`} style={{ color: ob.completed ? undefined : designTheme.main.body }}>{ob.text}</p>
-                                  {(ob.plannedDate || ob.plannedTime) && (
-                                    <p className="text-[11px] mt-0.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>
-                                      {ob.plannedDate && fmtDate(ob.plannedDate)}{ob.plannedDate && ob.plannedTime ? ' · ' : ''}{ob.plannedTime}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              {calUrl && (
-                                <a href={calUrl} target="_blank" rel="noopener noreferrer"
-                                  className="flex-shrink-0 p-1 transition-opacity hover:opacity-100 mt-0.5"
-                                  style={{ color: accent, opacity: 0.5 }}
-                                  title="Add to Google Calendar">
-                                  <CalendarPlus size={14} />
-                                </a>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <input className="w-full border px-2.5 py-1.5 text-xs outline-none"
-                        style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                        placeholder="Add assignment or obligation..."
-                        value={newObText} onChange={e => setNewObText(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addObligation()} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: designTheme.main.body, opacity: 0.5 }}>When I'll do it</p>
-                      <div className="space-y-2">
-                        <input type="date" className="w-full border px-2.5 py-1.5 text-xs outline-none"
-                          style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                          value={newObDate} onChange={e => setNewObDate(e.target.value)} />
-                        <input type="time" className="w-full border px-2.5 py-1.5 text-xs outline-none"
-                          style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                          value={newObTime} onChange={e => setNewObTime(e.target.value)} />
-                        <button onClick={addObligation}
-                          className="w-full py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-                          style={{ backgroundColor: newObText.trim() ? designTheme.main.btn : '#d6d3d1', color: designTheme.main.btnText }}>
-                          Add to week
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <SectionLabel title="Week ahead" sub={weekLabel(thisWeek)} />
+                    {/* Google Calendar: add-all or connect */}
+                    <div style={{ flexShrink: 0, marginLeft: 12 }}>
+                      {gcalSuccess ? (
+                        <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#16a34a' }}>✓ Added to Calendar</span>
+                      ) : googleToken ? (
+                        <button
+                          onClick={() => addAllToGoogleCalendar(thisWeekObs)}
+                          disabled={gcalAdding || thisWeekObs.filter(o => o.plannedDate && !o.completed).length === 0}
+                          style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: '#000', color: '#fff', border: 'none', padding: '6px 12px', cursor: gcalAdding ? 'wait' : 'pointer', opacity: gcalAdding ? 0.5 : 1 }}>
+                          {gcalAdding ? 'Adding…' : `Add all to Google Cal`}
                         </button>
-                        <p className="text-[11px] flex items-center gap-1" style={{ color: designTheme.main.body, opacity: 0.45 }}>
-                          <CalendarPlus size={11} /> Set a date to enable Google Calendar export
-                        </p>
-                      </div>
+                      ) : (
+                        <button
+                          onClick={() => gcalClientRef.current?.requestAccessToken()}
+                          style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#000', border: '1px solid #000', padding: '6px 12px', cursor: 'pointer', opacity: 0.6 }}>
+                          Connect Google Calendar
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {/* Existing items */}
+                  {thisWeekObs.length > 0 && (
+                    <div className="space-y-1.5 mb-4">
+                      {thisWeekObs.map(ob => (
+                        <div key={ob.id} className="flex items-start gap-2 group">
+                          <div onClick={() => toggleOb(ob.id)} className="flex items-start gap-2 flex-1 cursor-pointer min-w-0">
+                            {ob.completed ? <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0 mt-0.5" /> : <Circle size={15} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 mt-0.5 transition-colors" />}
+                            <div className="min-w-0">
+                              <p className={`text-sm leading-tight ${ob.completed ? 'line-through text-stone-400' : ''}`} style={{ color: ob.completed ? undefined : designTheme.main.body }}>{ob.text}</p>
+                              {(ob.plannedDate || ob.plannedTime) && (
+                                <p className="text-[11px] mt-0.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>
+                                  {ob.plannedDate && fmtDate(ob.plannedDate)}{ob.plannedDate && ob.plannedTime ? ' · ' : ''}{ob.plannedTime}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add item form — all in one row, button spans full width below */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px', gap: 8, marginBottom: 8 }}>
+                    <input className="border px-2.5 py-1.5 text-xs outline-none"
+                      style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
+                      placeholder="Add assignment or task…"
+                      value={newObText} onChange={e => setNewObText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addObligation()} />
+                    <input type="date" className="border px-2 py-1.5 text-xs outline-none"
+                      style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
+                      value={newObDate} onChange={e => setNewObDate(e.target.value)} />
+                    <input type="time" className="border px-2 py-1.5 text-xs outline-none"
+                      style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
+                      value={newObTime} onChange={e => setNewObTime(e.target.value)} />
+                  </div>
+                  <button
+                    onClick={addObligation}
+                    className="w-full py-2 text-xs font-bold uppercase tracking-widest transition-opacity hover:opacity-80"
+                    style={{
+                      backgroundColor: newObText.trim() ? designTheme.main.btn : '#e5e5e5',
+                      color: newObText.trim() ? designTheme.main.btnText : '#999',
+                      border: 'none',
+                    }}>
+                    Add to week
+                  </button>
                 </div>
               </div>
             )}
@@ -2068,6 +2279,65 @@ export default function Page() {
                     <span className="text-xs font-normal opacity-70">Answer a few questions to generate a theme that's uniquely yours</span>
                   </button>
                 )}
+
+                {/* Google Suite sync */}
+                <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>Google Suite</p>
+                    <p style={{ fontSize: '0.8rem', color: designTheme.main.body, opacity: 0.65, lineHeight: 1.6 }}>
+                      Connect your Google account to sync your week plan with Google Calendar and share Docs with your coach.
+                    </p>
+                  </div>
+
+                  {/* Google Calendar */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${designTheme.main.cardBorder}` }}>
+                    <div>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 600, color: designTheme.main.body }}>Google Calendar</p>
+                      <p style={{ fontSize: '0.7rem', color: designTheme.main.body, opacity: 0.5 }}>
+                        {googleToken ? 'Connected — week items sync automatically' : 'Add your week plan directly to your calendar'}
+                      </p>
+                    </div>
+                    {googleToken ? (
+                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#16a34a' }}>✓ Connected</span>
+                    ) : (
+                      <button onClick={() => gcalClientRef.current?.requestAccessToken()}
+                        style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: '#000', color: '#fff', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>
+                        Connect
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Google Drive / Docs */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${designTheme.main.cardBorder}` }}>
+                    <div>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 600, color: designTheme.main.body }}>Google Docs</p>
+                      <p style={{ fontSize: '0.7rem', color: designTheme.main.body, opacity: 0.5 }}>Share writing with your coach for feedback and progress tracking</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+                        if (!clientId) { alert('Google client ID not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in your .env.local file.'); return; }
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const g = (window as any).google;
+                        if (!g) { alert('Google Identity Services not loaded yet.'); return; }
+                        g.accounts.oauth2.initTokenClient({
+                          client_id: clientId,
+                          scope: 'https://www.googleapis.com/auth/drive.readonly',
+                          callback: (resp: { access_token: string }) => {
+                            if (resp.access_token) alert('Google Drive connected! Your coach can now see Docs you share.');
+                          },
+                        }).requestAccessToken();
+                      }}
+                      style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#000', border: '1px solid #000', padding: '8px 16px', cursor: 'pointer', opacity: 0.6 }}>
+                      Connect
+                    </button>
+                  </div>
+
+                  <p style={{ fontSize: '0.65rem', color: designTheme.main.body, opacity: 0.35, lineHeight: 1.5 }}>
+                    Google access is managed through your browser session only. Nothing is stored on external servers.{' '}
+                    <button onClick={() => setShowPrivacy(true)} style={{ color: 'inherit', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}>Privacy notice</button>
+                  </p>
+                </div>
               </div>
             )}
 
