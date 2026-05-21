@@ -306,10 +306,10 @@ const SEED_OBLIGATIONS: Obligation[] = [
 // ── Small components ───────────────────────────────────────────────────────────
 
 function Card({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
-  return <div onClick={onClick} className={`bg-white rounded-2xl border border-stone-100 shadow-sm ${onClick ? 'cursor-pointer' : ''} ${className}`}>{children}</div>;
+  return <div onClick={onClick} className={`bg-white border border-neutral-200 ${onClick ? 'cursor-pointer' : ''} ${className}`}>{children}</div>;
 }
 function SkillBar({ value, color }: { value: number; color: string }) {
-  return <div className="flex gap-0.5">{[1,2,3,4,5].map(v => <div key={v} className="h-1.5 flex-1 rounded-full" style={{ backgroundColor: v <= value ? color : '#e7e5e4' }} />)}</div>;
+  return <div className="flex gap-0.5">{[1,2,3,4,5].map(v => <div key={v} className="h-0.5 flex-1" style={{ backgroundColor: v <= value ? color : '#e7e5e4' }} />)}</div>;
 }
 function SectionLabel({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -344,43 +344,58 @@ function PomodoroTimer() {
   const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
   const secs = (seconds % 60).toString().padStart(2, '0');
   const pct = mode === 'work' ? (1 - seconds / workSecs) : (1 - seconds / breakSecs);
-  const color = mode === 'work' ? '#7c3aed' : '#10b981';
   const r = 54, circ = 2 * Math.PI * r;
 
   return (
-    <div className="flex flex-col items-center py-6">
-      <div className="flex gap-2 mb-8">
+    <div className="flex flex-col items-center py-8">
+      {/* Mode toggle — editorial pill-less tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #000', marginBottom: 40, width: '100%', maxWidth: 260 }}>
         {(['work', 'break'] as const).map(m => (
           <button key={m} onClick={() => switchMode(m)}
-            className="px-4 py-1.5 rounded-full text-sm font-semibold transition-colors"
-            style={mode === m ? { backgroundColor: color, color: 'white' } : { backgroundColor: '#f5f5f4', color: '#78716c' }}>
+            style={{
+              flex: 1, padding: '8px 0', fontSize: '0.625rem', fontWeight: 700,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              marginBottom: -1, backgroundColor: 'transparent', border: 'none',
+              borderBottom: mode === m ? '2px solid #000' : '2px solid transparent',
+              color: mode === m ? '#000' : 'rgba(0,0,0,0.35)',
+              cursor: 'pointer',
+            }}>
             {m === 'work' ? 'Focus' : 'Break'}
           </button>
         ))}
       </div>
-      <div className="relative w-36 h-36 mb-8">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r={r} fill="none" stroke="#f5f5f4" strokeWidth="8" />
-          <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
+
+      {/* Timer ring — black stroke on light grey track */}
+      <div style={{ position: 'relative', width: 144, height: 144, marginBottom: 40 }}>
+        <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r={r} fill="none" stroke="#f0f0f0" strokeWidth="6" />
+          <circle cx="60" cy="60" r={r} fill="none" stroke="#000" strokeWidth="6"
             strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
-            strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s linear' }} />
+            style={{ transition: 'stroke-dashoffset 1s linear' }} />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-stone-800">{mins}:{secs}</span>
-          <span className="text-xs text-stone-400 mt-0.5">{mode === 'work' ? 'focus time' : 'break time'}</span>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: '2rem', fontWeight: 300, letterSpacing: '-0.04em', color: '#000' }}>{mins}:{secs}</span>
+          <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)', marginTop: 4 }}>
+            {mode === 'work' ? 'focus' : 'break'}
+          </span>
         </div>
       </div>
-      <div className="flex gap-3">
+
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={toggle}
-          className="flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-bold text-sm transition-colors"
-          style={{ backgroundColor: color }}>
-          {running ? <Pause size={16} /> : <Play size={16} />}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 28px', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
+          {running ? <Pause size={14} /> : <Play size={14} />}
           {running ? 'Pause' : 'Start'}
         </button>
-        <button onClick={reset} className="p-3 rounded-2xl bg-stone-100 text-stone-500 hover:bg-stone-200 transition-colors"><RotateCcw size={16} /></button>
+        <button onClick={reset}
+          style={{ padding: '10px 14px', backgroundColor: 'transparent', border: '1px solid #000', color: '#000', cursor: 'pointer' }}>
+          <RotateCcw size={14} />
+        </button>
       </div>
-      <p className="text-xs text-stone-400 mt-6 text-center max-w-xs">
-        Work for 25 minutes, then take a 5-minute break. Repeat!
+
+      <p style={{ fontSize: '0.7rem', color: 'rgba(0,0,0,0.4)', marginTop: 24, textAlign: 'center', maxWidth: 260 }}>
+        25 minutes of focus, then a 5-minute break.
       </p>
     </div>
   );
@@ -425,30 +440,32 @@ function ChunkingTool({ studentId, projects, onSave }: { studentId: string; proj
 
   if (active) return (
     <div>
-      <button onClick={() => setActive(null)} className="flex items-center gap-1.5 text-sm text-stone-500 mb-4 hover:text-stone-700"><ArrowLeft size={14} /> All projects</button>
-      <div className="mb-4">
-        <h3 className="font-bold text-stone-800 text-base">{active.name}</h3>
-        {active.dueDate && <p className="text-xs text-stone-400 mt-0.5">Due {fmtDate(active.dueDate)}</p>}
-        <div className="h-2 bg-stone-100 rounded-full mt-2 overflow-hidden">
-          <div className="h-full bg-violet-500 rounded-full transition-all"
-            style={{ width: `${(active.steps.filter(s => s.done).length / active.steps.length) * 100}%` }} />
+      <button onClick={() => setActive(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20 }}>
+        <ArrowLeft size={11} /> All projects
+      </button>
+      <div style={{ marginBottom: 20 }}>
+        <p style={{ fontWeight: 700, fontSize: '0.95rem', color: '#000', marginBottom: 2 }}>{active.name}</p>
+        {active.dueDate && <p style={{ fontSize: '0.7rem', color: 'rgba(0,0,0,0.4)' }}>Due {fmtDate(active.dueDate)}</p>}
+        <div style={{ height: 2, backgroundColor: '#eee', marginTop: 10, overflow: 'hidden' }}>
+          <div style={{ height: '100%', backgroundColor: '#000', width: `${(active.steps.filter(s => s.done).length / active.steps.length) * 100}%`, transition: 'width 400ms ease' }} />
         </div>
-        <p className="text-xs text-stone-400 mt-1">{active.steps.filter(s => s.done).length} of {active.steps.length} steps done</p>
+        <p style={{ fontSize: '0.65rem', color: 'rgba(0,0,0,0.4)', marginTop: 4 }}>{active.steps.filter(s => s.done).length} of {active.steps.length} steps done</p>
       </div>
-      <div className="space-y-2 mb-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
         {active.steps.map(step => (
           <div key={step.id} onClick={() => toggleStep(step.id)}
-            className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
-            style={{ backgroundColor: step.done ? '#f5f3ff' : 'white', borderColor: step.done ? '#ddd6fe' : '#f5f5f4' }}>
-            {step.done ? <CheckCircle2 size={18} className="text-violet-500 flex-shrink-0" /> : <Circle size={18} className="text-stone-300 flex-shrink-0" />}
-            <span className={`text-sm ${step.done ? 'line-through text-stone-400' : 'text-stone-700'}`}>{step.text}</span>
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid', borderColor: step.done ? '#000' : '#e5e5e5', backgroundColor: step.done ? '#000' : '#fff', cursor: 'pointer', transition: 'all 180ms ease' }}>
+            {step.done
+              ? <CheckCircle2 size={15} style={{ color: '#fff', flexShrink: 0 }} />
+              : <Circle size={15} style={{ color: '#ccc', flexShrink: 0 }} />}
+            <span style={{ fontSize: '0.85rem', textDecoration: step.done ? 'line-through' : 'none', color: step.done ? 'rgba(255,255,255,0.7)' : '#000' }}>{step.text}</span>
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <input className="flex-1 border border-stone-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-          placeholder="Add a step..." value={newStep} onChange={e => setNewStep(e.target.value)} onKeyDown={e => e.key === 'Enter' && addStep()} />
-        <button onClick={addStep} className="bg-stone-100 px-3 rounded-xl text-stone-600 hover:bg-stone-200"><Plus size={15} /></button>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input style={{ flex: 1, border: '1px solid #ccc', borderBottom: '1px solid #000', padding: '7px 10px', fontSize: '0.8rem', outline: 'none', backgroundColor: 'transparent' }}
+          placeholder="Add a step…" value={newStep} onChange={e => setNewStep(e.target.value)} onKeyDown={e => e.key === 'Enter' && addStep()} />
+        <button onClick={addStep} style={{ padding: '7px 12px', backgroundColor: '#000', color: '#fff', border: 'none', cursor: 'pointer' }}><Plus size={13} /></button>
       </div>
     </div>
   );
@@ -456,34 +473,38 @@ function ChunkingTool({ studentId, projects, onSave }: { studentId: string; proj
   return (
     <div>
       {mine.length > 0 && (
-        <div className="space-y-2 mb-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
           {mine.map(p => (
             <div key={p.id} onClick={() => setActive(p)}
-              className="flex items-center justify-between p-3 rounded-xl border border-stone-100 hover:border-violet-200 cursor-pointer transition-colors">
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', border: '1px solid #e5e5e5', cursor: 'pointer', transition: 'border-color 150ms ease' }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = '#000')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e5e5')}>
               <div>
-                <p className="text-sm font-semibold text-stone-700">{p.name}</p>
-                <p className="text-xs text-stone-400">{p.steps.filter(s => s.done).length}/{p.steps.length} steps · {p.dueDate ? `Due ${fmtDate(p.dueDate)}` : 'No due date'}</p>
+                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#000' }}>{p.name}</p>
+                <p style={{ fontSize: '0.65rem', color: 'rgba(0,0,0,0.4)' }}>{p.steps.filter(s => s.done).length}/{p.steps.length} steps · {p.dueDate ? `Due ${fmtDate(p.dueDate)}` : 'No due date'}</p>
               </div>
-              <ChevronRight size={16} className="text-stone-400" />
+              <ChevronRight size={14} style={{ color: 'rgba(0,0,0,0.3)' }} />
             </div>
           ))}
         </div>
       )}
       {creating ? (
-        <div className="border border-stone-200 rounded-2xl p-4 space-y-2">
-          <input autoFocus className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+        <div style={{ border: '1px solid #000', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input autoFocus style={{ width: '100%', border: 'none', borderBottom: '1px solid #ccc', padding: '6px 0', fontSize: '0.9rem', outline: 'none', backgroundColor: 'transparent' }}
             placeholder="Assignment name (e.g. History essay)" value={newName} onChange={e => setNewName(e.target.value)} />
-          <input type="date" className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+          <input type="date" style={{ width: '100%', border: 'none', borderBottom: '1px solid #ccc', padding: '6px 0', fontSize: '0.8rem', outline: 'none', backgroundColor: 'transparent' }}
             value={newDue} onChange={e => setNewDue(e.target.value)} />
-          <div className="flex gap-2">
-            <button onClick={create} className="flex-1 bg-violet-600 text-white text-sm font-semibold py-2 rounded-xl">Break it down</button>
-            <button onClick={() => setCreating(false)} className="px-3 text-stone-500 text-sm hover:bg-stone-100 rounded-xl">Cancel</button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button onClick={create} style={{ flex: 1, backgroundColor: '#000', color: '#fff', border: 'none', padding: '9px 0', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}>Break it down</button>
+            <button onClick={() => setCreating(false)} style={{ padding: '9px 14px', backgroundColor: 'transparent', border: '1px solid #ccc', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       ) : (
         <button onClick={() => setCreating(true)}
-          className="w-full border-2 border-dashed border-stone-200 rounded-2xl py-4 text-stone-400 text-sm hover:border-violet-300 hover:text-violet-500 transition-colors flex items-center justify-center gap-2">
-          <Plus size={15} /> Add a big assignment to break down
+          style={{ width: '100%', border: '1px dashed #ccc', padding: '16px 0', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'border-color 150ms ease' }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = '#000')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = '#ccc')}>
+          <Plus size={12} /> Add an assignment to break down
         </button>
       )}
     </div>
@@ -505,19 +526,23 @@ function CustomWidget({ studentId, choice, onChoose, data, onSave }: {
 }) {
   const [picking, setPicking] = useState(false);
 
+  const inputStyle: React.CSSProperties = { width: '100%', border: 'none', borderBottom: '1px solid #ccc', padding: '7px 0', fontSize: '0.85rem', outline: 'none', backgroundColor: 'transparent' };
+
   if (!choice || picking) return (
     <div>
-      <p className="text-sm text-stone-500 mb-3">{picking ? 'Choose a different widget:' : 'What would you like here?'}</p>
-      <div className="grid grid-cols-2 gap-2">
+      <p style={{ fontSize: '0.7rem', color: 'rgba(0,0,0,0.45)', marginBottom: 16 }}>{picking ? 'Choose a different widget:' : 'What would you like here?'}</p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {WIDGET_OPTIONS.map(o => (
           <button key={o.type} onClick={() => { onChoose(o.type); setPicking(false); }}
-            className="flex flex-col items-start p-3 rounded-xl border border-stone-200 hover:border-violet-300 hover:bg-violet-50 transition-colors text-left">
-            <span className="text-sm font-semibold text-stone-700">{o.label}</span>
-            <span className="text-xs text-stone-400 mt-0.5">{o.desc}</span>
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '12px', border: '1px solid #e5e5e5', backgroundColor: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'border-color 150ms ease' }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#000')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e5e5')}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#000' }}>{o.label}</span>
+            <span style={{ fontSize: '0.65rem', color: 'rgba(0,0,0,0.4)', marginTop: 3 }}>{o.desc}</span>
           </button>
         ))}
       </div>
-      {picking && <button onClick={() => setPicking(false)} className="mt-3 text-sm text-stone-400 hover:text-stone-600">Cancel</button>}
+      {picking && <button onClick={() => setPicking(false)} style={{ marginTop: 12, fontSize: '0.65rem', color: 'rgba(0,0,0,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel</button>}
     </div>
   );
 
@@ -525,16 +550,14 @@ function CustomWidget({ studentId, choice, onChoose, data, onSave }: {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-stone-700">{opt.label}</span>
-        </div>
-        <button onClick={() => setPicking(true)} className="text-xs text-stone-400 hover:text-stone-600 flex items-center gap-1"><Pencil size={11} /> Change</button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#000' }}>{opt.label}</span>
+        <button onClick={() => setPicking(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={10} /> Change</button>
       </div>
       {choice === 'mood' && <MoodWidget data={data} onSave={onSave} />}
-      {choice === 'braindump' && <BrainDumpWidget data={data} onSave={onSave} />}
-      {choice === 'gratitude' && <GratitudeWidget data={data} onSave={onSave} />}
-      {choice === 'personal-goal' && <PersonalGoalWidget data={data} onSave={onSave} />}
+      {choice === 'braindump' && <BrainDumpWidget data={data} onSave={onSave} inputStyle={inputStyle} />}
+      {choice === 'gratitude' && <GratitudeWidget data={data} onSave={onSave} inputStyle={inputStyle} />}
+      {choice === 'personal-goal' && <PersonalGoalWidget data={data} onSave={onSave} inputStyle={inputStyle} />}
     </div>
   );
 }
@@ -545,6 +568,7 @@ function MoodWidget({ data, onSave }: { data: Record<string, unknown>; onSave: (
   const todayEntry = entries.find(e => e.date === today);
   const [note, setNote] = useState(todayEntry?.note ?? '');
   const MOODS = ['😩', '😕', '😐', '😊', '😄'];
+  const LABELS = ['Rough', 'Meh', 'Okay', 'Good', 'Great'];
 
   function save(level: number) {
     const updated = entries.filter(e => e.date !== today);
@@ -553,27 +577,28 @@ function MoodWidget({ data, onSave }: { data: Record<string, unknown>; onSave: (
 
   return (
     <div>
-      <p className="text-xs text-stone-400 mb-3">How are you feeling today?</p>
-      <div className="flex gap-2 mb-3">
+      <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)', marginBottom: 16 }}>How are you feeling today?</p>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
         {MOODS.map((m, i) => (
           <button key={i} onClick={() => save(i + 1)}
-            className="flex-1 text-2xl p-2 rounded-xl transition-all hover:scale-110"
-            style={{ backgroundColor: todayEntry?.level === i + 1 ? '#f5f3ff' : 'transparent', border: todayEntry?.level === i + 1 ? '2px solid #7c3aed' : '2px solid transparent' }}>
-            {m}
+            style={{ flex: 1, padding: '10px 0', fontSize: '1.4rem', border: '1px solid', borderColor: todayEntry?.level === i + 1 ? '#000' : '#e5e5e5', backgroundColor: todayEntry?.level === i + 1 ? '#000' : 'transparent', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 150ms ease' }}
+            title={LABELS[i]}>
+            <span>{m}</span>
+            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: todayEntry?.level === i + 1 ? '#fff' : 'rgba(0,0,0,0.3)' }}>{LABELS[i]}</span>
           </button>
         ))}
       </div>
-      {todayEntry && <p className="text-xs text-center text-violet-600 font-medium">{MOODS[todayEntry.level - 1]} logged today</p>}
+      {todayEntry && <p style={{ fontSize: '0.65rem', color: 'rgba(0,0,0,0.4)', textAlign: 'center' }}>{MOODS[todayEntry.level - 1]} {LABELS[todayEntry.level - 1]} — logged today</p>}
     </div>
   );
 }
 
-function BrainDumpWidget({ data, onSave }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void }) {
+function BrainDumpWidget({ data, onSave, inputStyle }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; inputStyle: React.CSSProperties }) {
   const [text, setText] = useState((data.text as string) ?? '');
   return (
     <div>
-      <p className="text-xs text-stone-400 mb-2">Write anything — no rules, no judgment.</p>
-      <textarea className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-700 outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+      <p style={{ fontSize: '0.65rem', color: 'rgba(0,0,0,0.4)', marginBottom: 10 }}>Write anything — no rules, no judgment.</p>
+      <textarea style={{ ...inputStyle, borderBottom: 'none', border: '1px solid #e5e5e5', padding: '10px 12px', resize: 'none', minHeight: 100, display: 'block' }}
         rows={4} placeholder="What's on your mind?" value={text}
         onChange={e => setText(e.target.value)}
         onBlur={() => onSave({ text })} />
@@ -581,7 +606,7 @@ function BrainDumpWidget({ data, onSave }: { data: Record<string, unknown>; onSa
   );
 }
 
-function GratitudeWidget({ data, onSave }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void }) {
+function GratitudeWidget({ data, onSave, inputStyle }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; inputStyle: React.CSSProperties }) {
   const today = new Date().toISOString().slice(0, 10);
   const entries = (data.entries as { date: string; items: string[] }[]) ?? [];
   const todayItems = entries.find(e => e.date === today)?.items ?? ['', '', ''];
@@ -594,24 +619,21 @@ function GratitudeWidget({ data, onSave }: { data: Record<string, unknown>; onSa
   }
 
   return (
-    <div className="space-y-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {['Something good that happened', 'Someone I appreciate', 'Something I\'m looking forward to'].map((ph, i) => (
-        <input key={i} className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-          placeholder={ph} value={items[i]} onChange={e => update(i, e.target.value)} />
+        <input key={i} style={inputStyle} placeholder={ph} value={items[i]} onChange={e => update(i, e.target.value)} />
       ))}
     </div>
   );
 }
 
-function PersonalGoalWidget({ data, onSave }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void }) {
+function PersonalGoalWidget({ data, onSave, inputStyle }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; inputStyle: React.CSSProperties }) {
   const [goal, setGoal] = useState((data.goal as string) ?? '');
   const [why, setWhy] = useState((data.why as string) ?? '');
   return (
-    <div className="space-y-2">
-      <input className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-        placeholder="My goal is..." value={goal} onChange={e => setGoal(e.target.value)} onBlur={() => onSave({ goal, why })} />
-      <input className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-        placeholder="Because..." value={why} onChange={e => setWhy(e.target.value)} onBlur={() => onSave({ goal, why })} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <input style={inputStyle} placeholder="My goal is…" value={goal} onChange={e => setGoal(e.target.value)} onBlur={() => onSave({ goal, why })} />
+      <input style={inputStyle} placeholder="Because…" value={why} onChange={e => setWhy(e.target.value)} onBlur={() => onSave({ goal, why })} />
     </div>
   );
 }
