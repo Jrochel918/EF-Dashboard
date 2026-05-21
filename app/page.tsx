@@ -159,7 +159,7 @@ function useCursor() {
     window.addEventListener('mouseover', onOver);
 
     const loop = () => {
-      const ease = 0.42;
+      const ease = 0.09;
       current.current.x += (target.current.x - current.current.x) * ease;
       current.current.y += (target.current.y - current.current.y) * ease;
       setPos({ x: current.current.x, y: current.current.y });
@@ -1424,7 +1424,7 @@ export default function Page() {
                       gap: '6px',
                       transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${rosterHovered ? 1 : 0.2})`,
                       opacity: rosterHovered ? 1 : 0,
-                      transition: `all 240ms cubic-bezier(0.34,1.56,0.64,1) ${i * 55}ms`,
+                      transition: `transform 600ms cubic-bezier(0.34,1.56,0.64,1) ${i * 100}ms, opacity 400ms ease ${i * 100}ms`,
                       pointerEvents: rosterHovered ? 'auto' : 'none',
                     }}>
                     <div style={{
