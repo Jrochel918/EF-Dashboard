@@ -1186,14 +1186,14 @@ function ThemeCustomizer({ theme, onSave }: { theme: StudentTheme; onSave: (t: S
 
 // ── Main App ───────────────────────────────────────────────────────────────────
 
-type View = 'roster' | 'student' | 'development' | 'assessment' | 'personality';
+type View = 'roster' | 'student' | 'assessment' | 'personality';
 type FocusTab = 'pomodoro' | 'chunking';
-type StudentTab = 'review' | 'week' | 'focus' | 'space';
+type StudentTab = 'overview' | 'growth' | 'drills' | 'space';
 
 export default function Page() {
   const [view, setView] = useState<View>('roster');
   const [focusTab, setFocusTab] = useState<FocusTab>('pomodoro');
-  const [studentTab, setStudentTab] = useState<StudentTab>('review');
+  const [studentTab, setStudentTab] = useState<StudentTab>('overview');
   const [tabVisible, setTabVisible] = useState(true);
   const [students, setStudents] = useState<Student[]>(SEED_STUDENTS);
   const [sessions, setSessions] = useState<Session[]>(SEED_SESSIONS);
@@ -1293,6 +1293,10 @@ export default function Page() {
     setTimeout(() => { setStudentTab(tab); setTabVisible(true); }, 150);
   }
 
+  function openStudentAtTab(id: string, tab: StudentTab) {
+    navigate(() => { setSelectedStudentId(id); setView('student'); setStudentTab(tab); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); });
+  }
+
   function addStudent() {
     if (!newName.trim()) return;
     setStudents(prev => [...prev, { id: `s${Date.now()}`, name: newName.trim(), grade: newGrade.trim() }]);
@@ -1311,7 +1315,7 @@ export default function Page() {
       ...prev,
       ...newHabits.map((text, i) => ({ id: `h-${Date.now()}-${i}`, studentId, text })),
     ]);
-    navigate(() => setView('student'));
+    navigate(() => { setView('student'); setStudentTab('overview'); setTabVisible(true); });
   }
 
   // ── Page-wipe curtain (renders above every view) ─────────────────────────────
@@ -1348,7 +1352,7 @@ export default function Page() {
             setStudentThemes(prev => ({ ...prev, [selectedStudent.id]: theme }));
             navigate(() => { setView('student'); setStudentTab('space'); setTabVisible(true); });
           }}
-          onBack={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudent.id); setRosterHovered(false); })}
+          onBack={() => navigate(() => setView('student'))}
         />
       </EditorialShell>{Curtain}</>
     );
@@ -1364,7 +1368,7 @@ export default function Page() {
           student={selectedStudent}
           fg={fg}
           onComplete={(ratings, habits, saAnswers) => applyAssessment(selectedStudent.id, ratings, habits, saAnswers)}
-          onBack={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudent.id); setRosterHovered(false); })}
+          onBack={() => navigate(() => setView('student'))}
         />
       </EditorialShell>{Curtain}</>
     );
@@ -1374,27 +1378,26 @@ export default function Page() {
 
   if (view === 'roster') {
     function openStudentDirect(id: string) {
-      setSelectedStudentId(id); setView('student'); setStudentTab('review');
+      setSelectedStudentId(id); setView('student'); setStudentTab('overview');
       setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false);
       setOverlayExiting(false);
     }
-    function openStudent(id: string)   { navigate(() => { setSelectedStudentId(id); setView('student');     setStudentTab('review'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }); }
-    function goAssessment(id: string)  { navigate(() => { setSelectedStudentId(id); setView('assessment');   setFocusedRosterId(null); setRosterHovered(false); }); }
-    function goDevelopment(id: string) { navigate(() => { setSelectedStudentId(id); setView('development');  setFocusedRosterId(null); setRosterHovered(false); }); }
-    function goPersonality(id: string) { navigate(() => { setSelectedStudentId(id); setView('personality');  setFocusedRosterId(null); setRosterHovered(false); }); }
+    function openStudent(id: string)   { navigate(() => { setSelectedStudentId(id); setView('student'); setStudentTab('overview'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }); }
+    function goAssessment(id: string)  { navigate(() => { setSelectedStudentId(id); setView('assessment');  setFocusedRosterId(null); setRosterHovered(false); }); }
+    function goPersonality(id: string) { navigate(() => { setSelectedStudentId(id); setView('personality'); setFocusedRosterId(null); setRosterHovered(false); }); }
 
     const focusedStudent = students.find(s => s.id === focusedRosterId) ?? null;
 
-    // Four radial options
+    // Four horizontal nav buttons
     const customLabel = studentThemes[focusedStudent?.id ?? '']?.customRadialLabel ?? 'Custom';
-    const RADIAL: { label: string; icon: React.ReactNode; angle: number; action: () => void; secondary?: boolean }[] = focusedStudent ? [
-      { label: 'Dashboard', icon: <ChevronRight size={14} />, angle: -90, action: () => {
+    const RADIAL: { label: string; icon: React.ReactNode; action: () => void }[] = focusedStudent ? [
+      { label: 'Dashboard', icon: <ChevronRight size={14} />, action: () => {
         setOverlayExiting(true);
         setTimeout(() => openStudentDirect(focusedStudent.id), 280);
       }},
-      { label: 'Growth',    icon: <TrendingUp size={14} />,   angle: 180, action: () => goDevelopment(focusedStudent.id), secondary: true },
-      { label: 'Drills',    icon: <Play size={14} />,         angle:   0, action: () => navigate(() => { setSelectedStudentId(focusedStudent.id); setView('student'); setStudentTab('focus'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }), secondary: true },
-      { label: customLabel, icon: <Star size={14} />,         angle:  90, action: () => goPersonality(focusedStudent.id), secondary: true },
+      { label: 'Growth',    icon: <TrendingUp size={14} />,   action: () => navigate(() => { setSelectedStudentId(focusedStudent.id); setView('student'); setStudentTab('growth');   setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }) },
+      { label: 'Drills',    icon: <Play size={14} />,         action: () => navigate(() => { setSelectedStudentId(focusedStudent.id); setView('student'); setStudentTab('drills');   setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }) },
+      { label: customLabel, icon: <Star size={14} />,         action: () => goPersonality(focusedStudent.id) },
     ] : [];
 
     return (
@@ -1438,7 +1441,7 @@ export default function Page() {
               style={{ padding: '80px' }}
               onClick={e => e.stopPropagation()}>
 
-              {/* The name — hovering this triggers the radial */}
+              {/* The name — hovering this triggers the horizontal nav */}
               <div className="text-center" onMouseEnter={showRadial}>
                 <h2 className="font-black leading-none"
                   style={{
@@ -1455,59 +1458,95 @@ export default function Page() {
                     {focusedStudent.grade} grade
                   </p>
                 )}
-                <p className="text-xs mt-3" style={{ color: designTheme.main.body, opacity: 0.3 }}>
-                  hover to navigate
-                </p>
-              </div>
 
-              {/* Radial buttons — elliptical orbit so horizontal items clear the wide name */}
-              {RADIAL.map((item, i) => {
-                const rad = (item.angle * Math.PI) / 180;
-                const rx = 290; // wider horizontal axis
-                const ry = 175; // tighter vertical axis
-                const x = Math.cos(rad) * rx;
-                const y = Math.sin(rad) * ry;
-                return (
-                  <button
-                    key={i}
-                    onClick={item.action}
-                    style={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: '50%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${rosterHovered ? 1 : 0.2})`,
-                      opacity: rosterHovered ? 1 : 0,
-                      transition: `transform 600ms cubic-bezier(0.34,1.56,0.64,1) ${i * 100}ms, opacity 400ms ease ${i * 100}ms`,
-                      pointerEvents: rosterHovered ? 'auto' : 'none',
-                    }}>
-                    <div style={{
-                      width: 40, height: 40,
-                      backgroundColor: item.secondary ? 'transparent' : designTheme.main.btn,
-                      border: item.secondary ? `1.5px solid ${designTheme.main.heading}` : 'none',
-                      color: item.secondary ? designTheme.main.heading : designTheme.main.btnText,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'opacity 120ms',
-                    }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                      {item.icon}
-                    </div>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      color: designTheme.main.heading,
-                      opacity: 0.7,
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {item.label}
-                    </span>
-                  </button>
-                );
-              })}
+                {/* Horizontal nav row — fades in on hover */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: 32,
+                  marginTop: 40,
+                  opacity: rosterHovered ? 1 : 0,
+                  transform: rosterHovered ? 'translateY(0)' : 'translateY(8px)',
+                  transition: 'opacity 400ms ease, transform 400ms ease',
+                  pointerEvents: rosterHovered ? 'auto' : 'none',
+                }}>
+                  {RADIAL.map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={item.action}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'none',
+                        padding: 0,
+                        transitionDelay: `${i * 60}ms`,
+                      }}
+                      onMouseEnter={e => {
+                        const icon = e.currentTarget.querySelector<HTMLDivElement>('.nav-icon');
+                        if (icon) icon.style.border = `1px solid ${designTheme.main.heading}`;
+                      }}
+                      onMouseLeave={e => {
+                        const icon = e.currentTarget.querySelector<HTMLDivElement>('.nav-icon');
+                        if (icon) icon.style.border = '1px solid transparent';
+                      }}>
+                      <div className="nav-icon" style={{
+                        width: 40, height: 40,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: designTheme.main.heading,
+                        border: '1px solid transparent',
+                        transition: 'border-color 120ms',
+                      }}>
+                        {item.icon}
+                      </div>
+                      <span style={{
+                        fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em',
+                        textTransform: 'uppercase',
+                        color: designTheme.main.heading,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Discoverability hint — visible when not hovered */}
+                <div style={{
+                  marginTop: rosterHovered ? 0 : 40,
+                  opacity: rosterHovered ? 0 : 1,
+                  transition: 'opacity 300ms ease, margin-top 300ms ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4,
+                }}>
+                  <ChevronDown size={16} style={{
+                    color: designTheme.main.body,
+                    transform: 'rotate(180deg)',
+                    animation: 'rosterPulse 2s ease-in-out infinite',
+                  }} />
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    color: designTheme.main.body,
+                    opacity: 0.4,
+                  }}>
+                    hover name to navigate
+                  </span>
+                </div>
+                <style>{`
+                  @keyframes rosterPulse {
+                    0%, 100% { opacity: 0.2; }
+                    50% { opacity: 0.6; }
+                  }
+                `}</style>
+              </div>
             </div>
 
             {/* Back hint */}
@@ -1543,7 +1582,7 @@ export default function Page() {
             {/* Theme switcher */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
               <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#000', opacity: 0.35 }}>
-                Theme
+                Coach view
               </p>
               <div style={{ display: 'flex', gap: 6 }}>
                 {DESIGN_THEMES.map((t: DesignTheme) => (
@@ -1693,92 +1732,93 @@ export default function Page() {
     };
     const accent = designTheme.main.accent;
 
+    // Student switcher: other students (up to 4)
+    const otherStudents = students.filter(s => s.id !== student.id).slice(0, 4);
+
     return (
       <><EditorialShell theme={designTheme} className="h-screen flex flex-col overflow-hidden" style={{ background: designTheme.main.bg }}>
 
-        {/* ── Top header ── */}
-        <header style={{ backgroundColor: designTheme.sidebar.bg, borderBottom: `1px solid ${designTheme.sidebar.border}`, flexShrink: 0 }}>
+        {/* ── Top header — always black editorial ── */}
+        <header style={{ backgroundColor: '#000', borderBottom: '1px solid #222', flexShrink: 0 }}>
           <div className="flex items-center gap-4 px-6 py-4">
-            <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(null); setRosterHovered(false); })}
+            {/* Back */}
+            <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudentId); setRosterHovered(false); })}
               className="flex items-center gap-1.5 text-xs flex-shrink-0 transition-opacity hover:opacity-70"
-              style={{ color: designTheme.sidebar.text, opacity: 0.55 }}>
+              style={{ color: '#fff', opacity: 0.55, background: 'transparent', border: 'none', cursor: 'pointer' }}>
               <ArrowLeft size={13} /> All students
             </button>
 
+            {/* Separator */}
+            <div style={{ width: 1, height: 20, backgroundColor: '#fff', opacity: 0.15, flexShrink: 0 }} />
+
             {/* Avatar */}
-            <div className="w-10 h-10 flex items-center justify-center text-base font-black flex-shrink-0"
-              style={{ backgroundColor: `${designTheme.sidebar.accent}25`, color: designTheme.sidebar.accent }}>
-              {student.name[0]}
+            <div className="w-9 h-9 flex items-center justify-center text-sm font-black flex-shrink-0"
+              style={{ backgroundColor: '#fff', color: '#000' }}>
+              {student.name.split(' ').map(n => n[0]).join('')}
             </div>
 
-            {/* Name + grade + tagline */}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="font-black text-lg leading-none" style={{ color: designTheme.sidebar.text }}>{student.name}</h1>
-                {theme?.vibe && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5"
-                    style={{ backgroundColor: `${designTheme.sidebar.accent}25`, color: designTheme.sidebar.accent }}>
-                    {theme.vibe}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs mt-0.5" style={{ color: designTheme.sidebar.text, opacity: 0.5 }}>
-                {student.grade && `${student.grade} · `}{studentSessions.length} sessions · {studentHabits.length} habits
-                {theme?.tagline && <span className="italic ml-2" style={{ color: designTheme.sidebar.accent }}>"{theme.tagline}"</span>}
-              </p>
+            {/* Name + grade */}
+            <div className="min-w-0 flex items-center gap-2">
+              <h1 style={{
+                fontSize: '1rem', fontWeight: 900, lineHeight: 1, color: '#fff',
+                letterSpacing: '-0.02em',
+              }}>{student.name}</h1>
+              {student.grade && (
+                <span style={{
+                  fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em',
+                  textTransform: 'uppercase', color: '#fff', opacity: 0.4,
+                  border: '1px solid rgba(255,255,255,0.2)', padding: '2px 6px',
+                }}>
+                  {student.grade}
+                </span>
+              )}
             </div>
-
-            {/* EF skill bars (compact) */}
-            {latestSession && (
-              <div className="hidden md:flex gap-4 ml-4">
-                {EF_AREAS.map(area => (
-                  <div key={area.key} className="w-20">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-[10px]" style={{ color: designTheme.sidebar.text, opacity: 0.5 }}>{area.label.split(' ')[0]}</span>
-                      <span className="text-[10px] font-bold" style={{ color: designTheme.sidebar.accent }}>{latestSession.efRatings[area.key]}</span>
-                    </div>
-                    <SkillBar value={latestSession.efRatings[area.key]} color={designTheme.sidebar.accent} />
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => navigate(() => setView('development'))}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-opacity hover:opacity-80"
-                style={{ backgroundColor: designTheme.sidebar.accent, color: '#fff' }}>
-                <TrendingUp size={12} /> Growth
-              </button>
-              <button onClick={() => navigate(() => setView('assessment'))}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
-                style={{ borderColor: `${designTheme.sidebar.text}30`, color: designTheme.sidebar.text, opacity: 0.75 }}>
-                <Target size={12} /> Assessment
-              </button>
-              <button onClick={() => navigate(() => setView('personality'))}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
-                style={{ borderColor: `${designTheme.sidebar.text}30`, color: designTheme.sidebar.text, opacity: 0.75 }}>
-                <Smile size={12} /> {theme ? 'Redo theme' : 'Personalize'}
-              </button>
-            </div>
+            {/* Student switcher — initials of other students */}
+            {otherStudents.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {otherStudents.map(s => (
+                  <button key={s.id}
+                    onClick={() => navigate(() => { setSelectedStudentId(s.id); setView('student'); setStudentTab('overview'); setTabVisible(true); })}
+                    title={s.name}
+                    style={{
+                      width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.5625rem', fontWeight: 700, background: 'rgba(255,255,255,0.12)',
+                      color: '#fff', border: 'none', cursor: 'pointer',
+                      transition: 'background 150ms',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}>
+                    {s.name.split(' ').map(n => n[0]).join('')}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Personalize button */}
+            <button onClick={() => navigate(() => setView('personality'))}
+              className="flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80 flex-shrink-0"
+              style={{ color: '#fff', opacity: 0.6, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              <Smile size={12} /> {theme ? 'Redo theme' : 'Personalize'}
+            </button>
           </div>
 
           {/* Tab bar */}
-          <div className="flex px-6" style={{ borderTop: `1px solid ${designTheme.sidebar.border}` }}>
+          <div className="flex px-6" style={{ borderTop: '1px solid #222' }}>
             {([
-              ['review', 'Last week'],
-              ['week',   'This week'],
-              ['focus',  'Focus tools'],
-              ['space',  'My space'],
+              ['overview', 'Overview'],
+              ['growth',   'Growth'],
+              ['drills',   'Drills'],
+              ['space',    'Space'],
             ] as [StudentTab, string][]).map(([key, label]) => (
               <button key={key} onClick={() => switchStudentTab(key)}
                 className="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
                 style={studentTab === key
-                  ? { borderColor: designTheme.sidebar.accent, color: designTheme.sidebar.accent }
-                  : { borderColor: 'transparent', color: designTheme.sidebar.text, opacity: 0.5 }}>
+                  ? { borderColor: '#fff', color: '#fff', background: 'transparent', border: 'none', borderBottom: '2px solid #fff' }
+                  : { borderColor: 'transparent', color: '#fff', opacity: 0.4, background: 'transparent', border: 'none', borderBottom: '2px solid transparent' }}>
                 {label}
               </button>
             ))}
@@ -1786,133 +1826,258 @@ export default function Page() {
         </header>
 
         {/* ── Content ── */}
-        <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: designTheme.main.bg }}>
-          <div style={{ opacity: tabVisible ? 1 : 0, transition: 'opacity 150ms ease' }}>
+        <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: '#fff' }}>
+          <div style={{ maxWidth: 760, margin: '0 auto', opacity: tabVisible ? 1 : 0, transition: 'opacity 150ms ease' }}>
 
-            {studentTab === 'review' && (
-              <div style={cardStyle}>
-                <div className="flex items-start justify-between mb-3">
-                  <SectionLabel title="Last week's goals & habits" sub={weekLabel(lastWeek)} />
-                  <button onClick={() => navigate(() => setView('development'))}
-                    className="text-xs font-semibold flex items-center gap-1 px-3 py-1.5 hover:opacity-80 flex-shrink-0 ml-3"
-                    style={{ backgroundColor: designTheme.main.btn, color: designTheme.main.btnText }}>
-                    Overall development <ChevronRight size={12} />
+            {/* ── Overview: EF bars + last week + this week ── */}
+            {studentTab === 'overview' && (
+              studentSessions.length === 0 ? (
+                <div style={{ textAlign: 'center', paddingTop: 80 }}>
+                  <p style={{ fontSize: '2rem', fontWeight: 300, letterSpacing: '-0.03em', color: '#000', marginBottom: 8 }}>No sessions yet</p>
+                  <p style={{ fontSize: '0.875rem', color: '#78716c', marginBottom: 32 }}>Run an assessment to get started</p>
+                  <button onClick={() => navigate(() => setView('assessment'))}
+                    style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#fff', background: '#000', border: 'none', padding: '12px 28px', cursor: 'pointer' }}>
+                    Begin Assessment
                   </button>
                 </div>
-                {prevTotal === 0 ? (
-                  <p className="text-sm text-stone-400 text-center py-4">Nothing was set for last week yet.</p>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between px-3 py-2 mb-3 text-sm" style={{ backgroundColor: `${accent}10`, border: `1px solid ${accent}20` }}>
-                      <span className="font-semibold text-stone-700">{prevCompleted}/{prevTotal} completed</span>
-                      <span className="text-xs font-medium" style={{ color: designTheme.main.body }}>{prevCompleted === prevTotal ? 'All done' : prevCompleted > prevTotal / 2 ? 'Strong week' : 'Keep at it'}</span>
-                    </div>
-                    {lastWeekEntry.goals.length > 0 && (
-                      <div className="mb-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>Goals</p>
-                        <div className="space-y-1.5">
-                          {lastWeekEntry.goals.map(g => (
-                            <div key={g.id} onClick={() => toggleLastGoal(g.id)} className="flex items-center gap-2.5 cursor-pointer group">
-                              {g.completed ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" /> : <Circle size={16} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 transition-colors" />}
-                              <span className={`text-sm ${g.completed ? 'line-through text-stone-400' : ''}`} style={{ color: g.completed ? undefined : designTheme.main.body }}>{g.text}</span>
-                            </div>
-                          ))}
+              ) : (
+                <div className="space-y-4">
+                  {/* EF skill bars */}
+                  <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 16 }}>EF Skills — latest session</p>
+                    <div className="space-y-4">
+                      {EF_AREAS.map(area => (
+                        <div key={area.key}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                            <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.5 }}>{area.label}</span>
+                            <span style={{ fontSize: '1.25rem', fontWeight: 300, color: '#000', lineHeight: 1 }}>{latestSession?.efRatings[area.key] ?? '—'}</span>
+                          </div>
+                          <div style={{ height: 1, backgroundColor: '#e7e5e4', position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${((latestSession?.efRatings[area.key] ?? 0) / 5) * 100}%`, backgroundColor: '#000', transition: 'width 600ms ease' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                            <span style={{ fontSize: 9, color: '#a8a29e' }}>{EF_LEVEL_LABELS[latestSession?.efRatings[area.key] ?? 1]}</span>
+                            <span style={{ fontSize: 9, color: '#a8a29e' }}>/ 5</span>
+                          </div>
                         </div>
-                      </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Last week */}
+                  <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 12 }}>Last week — {weekLabel(lastWeek)}</p>
+                    {prevTotal === 0 ? (
+                      <p style={{ fontSize: '0.875rem', color: '#a8a29e' }}>Nothing was set for last week yet.</p>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', marginBottom: 12, backgroundColor: '#f5f5f4', border: '1px solid #e7e5e4' }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#000' }}>{prevCompleted}/{prevTotal} completed</span>
+                          <span style={{ fontSize: '0.75rem', color: '#78716c' }}>{prevCompleted === prevTotal ? 'All done' : prevCompleted > prevTotal / 2 ? 'Strong week' : 'Keep at it'}</span>
+                        </div>
+                        {lastWeekEntry.goals.length > 0 && (
+                          <div className="mb-3">
+                            <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.35, marginBottom: 8 }}>Goals</p>
+                            <div className="space-y-1.5">
+                              {lastWeekEntry.goals.map(g => (
+                                <div key={g.id} onClick={() => toggleLastGoal(g.id)} className="flex items-center gap-2.5 cursor-pointer group">
+                                  {g.completed ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" /> : <Circle size={16} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 transition-colors" />}
+                                  <span style={{ fontSize: '0.875rem', color: g.completed ? '#a8a29e' : '#1c1917', textDecoration: g.completed ? 'line-through' : 'none' }}>{g.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {studentHabits.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.35, marginBottom: 8, marginTop: 12 }}>Habits</p>
+                            <div className="space-y-1.5">
+                              {studentHabits.map(h => {
+                                const checked = lastWeekEntry.habitChecks.includes(h.id);
+                                return (
+                                  <div key={h.id} onClick={() => toggleLastHabit(h.id)} className="flex items-center gap-2.5 cursor-pointer group">
+                                    {checked ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" /> : <Circle size={16} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 transition-colors" />}
+                                    <span style={{ fontSize: '0.875rem', color: checked ? '#a8a29e' : '#1c1917', textDecoration: checked ? 'line-through' : 'none' }}>{h.text}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
-                    {studentHabits.length > 0 && (
+                  </div>
+
+                  {/* This week */}
+                  <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 12 }}>This week — {weekLabel(thisWeek)}</p>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5 mt-3" style={{ color: designTheme.main.body, opacity: 0.5 }}>Habits</p>
-                        <div className="space-y-1.5">
-                          {studentHabits.map(h => {
-                            const checked = lastWeekEntry.habitChecks.includes(h.id);
+                        <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.35, marginBottom: 8 }}>What's coming up</p>
+                        <div className="space-y-1.5 mb-2">
+                          {thisWeekObs.map(ob => {
+                            const calUrl = googleCalendarUrl(ob.text, ob.plannedDate, ob.plannedTime);
                             return (
-                              <div key={h.id} onClick={() => toggleLastHabit(h.id)} className="flex items-center gap-2.5 cursor-pointer group">
-                                {checked ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" /> : <Circle size={16} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 transition-colors" />}
-                                <span className={`text-sm ${checked ? 'line-through text-stone-400' : ''}`} style={{ color: checked ? undefined : designTheme.main.body }}>{h.text}</span>
+                              <div key={ob.id} className="flex items-start gap-2 group">
+                                <div onClick={() => toggleOb(ob.id)} className="flex items-start gap-2 flex-1 cursor-pointer min-w-0">
+                                  {ob.completed ? <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0 mt-0.5" /> : <Circle size={15} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 mt-0.5 transition-colors" />}
+                                  <div className="min-w-0">
+                                    <p style={{ fontSize: '0.875rem', color: ob.completed ? '#a8a29e' : '#1c1917', textDecoration: ob.completed ? 'line-through' : 'none' }}>{ob.text}</p>
+                                    {(ob.plannedDate || ob.plannedTime) && (
+                                      <p style={{ fontSize: 11, color: '#a8a29e', marginTop: 2 }}>
+                                        {ob.plannedDate && fmtDate(ob.plannedDate)}{ob.plannedDate && ob.plannedTime ? ' · ' : ''}{ob.plannedTime}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                {calUrl && (
+                                  <a href={calUrl} target="_blank" rel="noopener noreferrer"
+                                    className="flex-shrink-0 p-1 transition-opacity hover:opacity-100 mt-0.5"
+                                    style={{ color: accent, opacity: 0.5 }}
+                                    title="Add to Google Calendar">
+                                    <CalendarPlus size={14} />
+                                  </a>
+                                )}
                               </div>
                             );
                           })}
                         </div>
+                        <input className="w-full border px-2.5 py-1.5 text-xs outline-none"
+                          style={{ borderColor: '#000', backgroundColor: '#fff', color: '#000' }}
+                          placeholder="Add assignment or obligation..."
+                          value={newObText} onChange={e => setNewObText(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && addObligation()} />
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
+                      <div>
+                        <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.35, marginBottom: 8 }}>When I'll do it</p>
+                        <div className="space-y-2">
+                          <input type="date" className="w-full border px-2.5 py-1.5 text-xs outline-none"
+                            style={{ borderColor: '#e7e5e4', backgroundColor: '#fff', color: '#000' }}
+                            value={newObDate} onChange={e => setNewObDate(e.target.value)} />
+                          <input type="time" className="w-full border px-2.5 py-1.5 text-xs outline-none"
+                            style={{ borderColor: '#e7e5e4', backgroundColor: '#fff', color: '#000' }}
+                            value={newObTime} onChange={e => setNewObTime(e.target.value)} />
+                          <button onClick={addObligation}
+                            className="w-full py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+                            style={{ backgroundColor: newObText.trim() ? '#000' : '#d6d3d1', color: '#fff', border: 'none', cursor: 'pointer',
+                              fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                            Add to week
+                          </button>
+                          <p style={{ fontSize: 11, color: '#a8a29e', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <CalendarPlus size={11} /> Set a date to enable Google Calendar export
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
             )}
 
-            {studentTab === 'week' && (
-              <div style={cardStyle}>
-                <SectionLabel title="Week ahead" sub={weekLabel(thisWeek)} />
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: designTheme.main.body, opacity: 0.5 }}>What's coming up</p>
-                    <div className="space-y-1.5 mb-2">
-                      {thisWeekObs.map(ob => {
-                        const calUrl = googleCalendarUrl(ob.text, ob.plannedDate, ob.plannedTime);
+            {/* ── Growth: chart + skill bars + session history ── */}
+            {studentTab === 'growth' && (() => {
+              const growthSessions = sessions.filter(s => s.studentId === student.id).sort((a, b) => a.date.localeCompare(b.date));
+              const growthLatest = growthSessions[growthSessions.length - 1];
+              const chartData = growthSessions.map(s => ({
+                date: fmtDate(s.date),
+                'Getting Started': s.efRatings.taskInitiation,
+                'Focus & Memory': s.efRatings.workingMemory,
+                'Managing Time': s.efRatings.timeManagement,
+              }));
+              const strengths = growthLatest
+                ? EF_AREAS.map(area => ({ area, value: growthLatest.efRatings[area.key] })).sort((a, b) => b.value - a.value)
+                : [];
+              const improvements = growthSessions.length >= 2 && growthLatest
+                ? EF_AREAS.map(area => ({ area, delta: growthLatest.efRatings[area.key] - growthSessions[0].efRatings[area.key] })).filter(x => x.delta > 0)
+                : [];
+
+              return growthSessions.length === 0 ? (
+                <div style={{ textAlign: 'center', paddingTop: 80 }}>
+                  <p style={{ fontSize: '2rem', fontWeight: 300, letterSpacing: '-0.03em', color: '#000', marginBottom: 8 }}>Nothing to chart yet</p>
+                  <p style={{ fontSize: '0.875rem', color: '#78716c' }}>Add sessions to track growth</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {improvements.length > 0 && (
+                    <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                      <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 8 }}>Top improvement</p>
+                      <p style={{ fontSize: '1.125rem', fontWeight: 300, color: '#000', letterSpacing: '-0.02em' }}>{improvements[0].area.label}</p>
+                      <p style={{ fontSize: '0.75rem', color: '#78716c', marginTop: 4 }}>Up {improvements[0].delta} {improvements[0].delta === 1 ? 'level' : 'levels'} since first session</p>
+                    </div>
+                  )}
+
+                  <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 16 }}>EF strength ranking</p>
+                    <div className="space-y-4">
+                      {strengths.map(({ area, value }) => {
+                        const delta = growthSessions.length > 1 ? value - growthSessions[0].efRatings[area.key] : 0;
                         return (
-                          <div key={ob.id} className="flex items-start gap-2 group">
-                            <div onClick={() => toggleOb(ob.id)} className="flex items-start gap-2 flex-1 cursor-pointer min-w-0">
-                              {ob.completed ? <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0 mt-0.5" /> : <Circle size={15} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 mt-0.5 transition-colors" />}
-                              <div className="min-w-0">
-                                <p className={`text-sm leading-tight ${ob.completed ? 'line-through text-stone-400' : ''}`} style={{ color: ob.completed ? undefined : designTheme.main.body }}>{ob.text}</p>
-                                {(ob.plannedDate || ob.plannedTime) && (
-                                  <p className="text-[11px] mt-0.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>
-                                    {ob.plannedDate && fmtDate(ob.plannedDate)}{ob.plannedDate && ob.plannedTime ? ' · ' : ''}{ob.plannedTime}
-                                  </p>
-                                )}
+                          <div key={area.key}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                              <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.5 }}>{area.label}</span>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                                {delta > 0 && <span style={{ fontSize: '0.625rem', color: '#059669', fontWeight: 700 }}>+{delta}</span>}
+                                <span style={{ fontSize: '1.25rem', fontWeight: 300, color: '#000', lineHeight: 1 }}>{value}</span>
                               </div>
                             </div>
-                            {calUrl && (
-                              <a href={calUrl} target="_blank" rel="noopener noreferrer"
-                                className="flex-shrink-0 p-1 transition-opacity hover:opacity-100 mt-0.5"
-                                style={{ color: accent, opacity: 0.5 }}
-                                title="Add to Google Calendar">
-                                <CalendarPlus size={14} />
-                              </a>
-                            )}
+                            <div style={{ height: 1, backgroundColor: '#e7e5e4', position: 'relative' }}>
+                              <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(value / 5) * 100}%`, backgroundColor: '#000' }} />
+                            </div>
+                            <p style={{ fontSize: 9, color: '#a8a29e', marginTop: 3 }}>{EF_LEVEL_LABELS[value]}</p>
                           </div>
                         );
                       })}
                     </div>
-                    <input className="w-full border px-2.5 py-1.5 text-xs outline-none"
-                      style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                      placeholder="Add assignment or obligation..."
-                      value={newObText} onChange={e => setNewObText(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && addObligation()} />
                   </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: designTheme.main.body, opacity: 0.5 }}>When I'll do it</p>
-                    <div className="space-y-2">
-                      <input type="date" className="w-full border px-2.5 py-1.5 text-xs outline-none"
-                        style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                        value={newObDate} onChange={e => setNewObDate(e.target.value)} />
-                      <input type="time" className="w-full border px-2.5 py-1.5 text-xs outline-none"
-                        style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                        value={newObTime} onChange={e => setNewObTime(e.target.value)} />
-                      <button onClick={addObligation}
-                        className="w-full py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: newObText.trim() ? designTheme.main.btn : '#d6d3d1', color: designTheme.main.btnText }}>
-                        Add to week
-                      </button>
-                      <p className="text-[11px] flex items-center gap-1" style={{ color: designTheme.main.body, opacity: 0.45 }}>
-                        <CalendarPlus size={11} /> Set a date to enable Google Calendar export
-                      </p>
+
+                  {chartData.length > 1 && (
+                    <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                      <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 16 }}>Growth over time</p>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f4" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a29e' }} />
+                          <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: '#a8a29e' }} />
+                          <Tooltip contentStyle={{ fontSize: 11, borderRadius: 0 }} formatter={v => [EF_LEVEL_LABELS[Number(v)] ?? v, '']} />
+                          {EF_AREAS.map(area => (
+                            <Line key={area.key} type="monotone" dataKey={area.label} stroke={area.color} strokeWidth={2.5} dot={{ r: 4, fill: area.color, strokeWidth: 0 }} />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 16 }}>Session history</p>
+                    <div className="space-y-4">
+                      {[...growthSessions].reverse().map((s, i) => (
+                        <div key={s.id} className="relative pl-5">
+                          {i < growthSessions.length - 1 && <div className="absolute left-[7px] top-6 bottom-0 w-px bg-stone-100" />}
+                          <div className="absolute left-0 top-1.5 w-3.5 h-3.5 border border-stone-300 bg-white" />
+                          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#78716c', marginBottom: 4 }}>{fmtDateLong(s.date)}</p>
+                          {s.notes && <p style={{ fontSize: '0.875rem', color: '#1c1917', marginBottom: 6, lineHeight: 1.5 }}>{s.notes}</p>}
+                          <div className="flex gap-3">{EF_AREAS.map(area => (<div key={area.key} className="flex items-center gap-1"><span style={{ fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#a8a29e' }}>{area.label.split(' ')[0]}</span><span style={{ fontSize: '0.75rem', fontWeight: 700, color: area.color }}>{s.efRatings[area.key]}</span></div>))}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {studentTab === 'focus' && (
-              <div style={cardStyle}>
-                <div className="flex gap-px mb-5" style={{ backgroundColor: designTheme.main.cardBorder }}>
+            {/* ── Drills: Pomodoro + Chunking ── */}
+            {studentTab === 'drills' && (
+              <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                <div className="flex gap-px mb-5" style={{ backgroundColor: '#000' }}>
                   {([['pomodoro', 'Pomodoro timer'], ['chunking', 'Break it down']] as [FocusTab, string][]).map(([key, label]) => (
                     <button key={key} onClick={() => setFocusTab(key)}
-                      className="flex-1 py-2.5 text-sm font-semibold transition-colors"
-                      style={focusTab === key
-                        ? { backgroundColor: designTheme.main.btn, color: designTheme.main.btnText }
-                        : { backgroundColor: designTheme.main.card, color: designTheme.main.body }}>
+                      className="flex-1 py-2.5 text-xs font-bold transition-colors"
+                      style={{
+                        letterSpacing: '0.12em', textTransform: 'uppercase',
+                        backgroundColor: focusTab === key ? '#000' : '#fff',
+                        color: focusTab === key ? '#fff' : '#000',
+                        border: 'none', cursor: 'pointer',
+                      }}>
                       {label}
                     </button>
                   ))}
@@ -1931,10 +2096,11 @@ export default function Page() {
               </div>
             )}
 
+            {/* ── Space: custom widget + personalize ── */}
             {studentTab === 'space' && (
               <div className="space-y-4">
-                <div style={cardStyle}>
-                  <SectionLabel title="My space" sub="Yours to customize" />
+                <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
+                  <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.4, marginBottom: 12 }}>My space</p>
                   <CustomWidget
                     studentId={student.id}
                     choice={widgetChoices[student.id] ?? null}
@@ -1945,7 +2111,7 @@ export default function Page() {
                 </div>
 
                 {theme ? (
-                  <div style={cardStyle}>
+                  <div style={{ border: '1px solid #000', backgroundColor: '#fff', padding: 20 }}>
                     <ThemeCustomizer
                       theme={theme}
                       onSave={t => setStudentThemes(prev => ({ ...prev, [student.id]: t }))}
@@ -1954,11 +2120,10 @@ export default function Page() {
                 ) : (
                   <button
                     onClick={() => navigate(() => setView('personality'))}
-                    className="w-full border-2 border-dashed p-6 text-sm font-medium transition-opacity hover:opacity-70 flex flex-col items-center gap-2"
-                    style={{ borderColor: `${accent}50`, color: accent }}>
-                    <Smile size={22} />
-                    <span>Personalize this dashboard with AI</span>
-                    <span className="text-xs font-normal opacity-70">Answer a few questions to generate a theme that's uniquely yours</span>
+                    style={{ width: '100%', border: '1px dashed #000', padding: '24px', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <Smile size={22} color="#000" />
+                    <span style={{ color: '#000' }}>Personalize this dashboard with AI</span>
+                    <span style={{ fontSize: '0.75rem', color: '#78716c' }}>Answer a few questions to generate a theme that's uniquely yours</span>
                   </button>
                 )}
               </div>
@@ -1966,103 +2131,6 @@ export default function Page() {
 
           </div>
         </main>
-      </EditorialShell>{Curtain}</>
-    );
-  }
-
-  // ── Development screen ───────────────────────────────────────────────────────
-
-  if (view === 'development' && selectedStudent) {
-    const student = selectedStudent;
-    const [fg] = getAvatarColors(student.name);
-    const studentSessions = sessions.filter(s => s.studentId === student.id).sort((a, b) => a.date.localeCompare(b.date));
-    const latestSession = studentSessions[studentSessions.length - 1];
-
-    const chartData = studentSessions.map(s => ({
-      date: fmtDate(s.date),
-      'Getting Started': s.efRatings.taskInitiation,
-      'Focus & Memory': s.efRatings.workingMemory,
-      'Managing Time': s.efRatings.timeManagement,
-    }));
-
-    const strengths = latestSession
-      ? EF_AREAS.map(area => ({ area, value: latestSession.efRatings[area.key] })).sort((a, b) => b.value - a.value)
-      : [];
-
-    const improvements = studentSessions.length >= 2
-      ? EF_AREAS.map(area => ({ area, delta: latestSession.efRatings[area.key] - studentSessions[0].efRatings[area.key] })).filter(x => x.delta > 0)
-      : [];
-
-    return (
-      <><EditorialShell theme={designTheme} className="min-h-screen">
-        <div className="max-w-2xl mx-auto px-4 py-6">
-          <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudentId); setRosterHovered(false); })} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6"><ArrowLeft size={15} /> Back to home</button>
-          <h1 className="text-xl font-bold text-stone-800 mb-1">My growth — {student.name}</h1>
-          <p className="text-sm text-stone-500 mb-6">{studentSessions.length} sessions together</p>
-
-          {improvements.length > 0 && (
-            <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: `${fg}10`, border: `1.5px solid ${fg}20` }}>
-              <p className="font-semibold text-stone-800 text-sm">Top improvement: <span style={{ color: fg }}>{improvements[0].area.label}</span></p>
-              <p className="text-xs text-stone-500 mt-0.5">Up {improvements[0].delta} {improvements[0].delta === 1 ? 'level' : 'levels'} since first session</p>
-            </div>
-          )}
-
-          <div className="space-y-3 mb-5">
-            {strengths.map(({ area, value }) => {
-              const delta = studentSessions.length > 1 ? value - studentSessions[0].efRatings[area.key] : 0;
-              return (
-                <Card key={area.key} className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: area.color + '60' }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-sm font-bold text-stone-800">{area.label}</p>
-                        <span className="text-xs font-semibold" style={{ color: area.color }}>Level {value}/5</span>
-                      </div>
-                      <SkillBar value={value} color={area.color} />
-                      <div className="flex items-center justify-between mt-1.5">
-                        <p className="text-xs text-stone-500">{EF_LEVEL_LABELS[value]}</p>
-                        {delta > 0 && <span className="text-xs font-medium text-emerald-600 flex items-center gap-0.5"><TrendingUp size={11} /> +{delta} since start</span>}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-
-          {chartData.length > 1 && (
-            <Card className="p-5 mb-5">
-              <p className="text-sm font-bold text-stone-700 mb-4">Growth over time</p>
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f4" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#a8a29e' }} />
-                  <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 10, fill: '#a8a29e' }} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 10 }} formatter={v => [EF_LEVEL_LABELS[Number(v)] ?? v, '']} />
-                  {EF_AREAS.map(area => (
-                    <Line key={area.key} type="monotone" dataKey={area.label} stroke={area.color} strokeWidth={2.5} dot={{ r: 4, fill: area.color, strokeWidth: 0 }} />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </Card>
-          )}
-
-          <Card className="p-5">
-            <p className="text-sm font-bold text-stone-700 mb-4">Session history</p>
-            <div className="space-y-4">
-              {[...studentSessions].reverse().map((s, i) => (
-                <div key={s.id} className="relative pl-5">
-                  {i < studentSessions.length - 1 && <div className="absolute left-[7px] top-6 bottom-0 w-px bg-stone-100" />}
-                  <div className="absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-stone-200 bg-white" />
-                  <p className="text-xs font-semibold text-stone-500 mb-1">{fmtDateLong(s.date)}</p>
-                  {s.notes && <p className="text-sm text-stone-600 mb-1.5 leading-relaxed">{s.notes}</p>}
-                  <div className="flex gap-3">{EF_AREAS.map(area => (<div key={area.key} className="flex items-center gap-1"><span className="text-xs text-stone-400">{area.label.split(' ')[0]}</span><span className="text-xs font-bold" style={{ color: area.color }}>{s.efRatings[area.key]}</span></div>))}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
       </EditorialShell>{Curtain}</>
     );
   }
