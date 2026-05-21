@@ -1207,7 +1207,28 @@ export default function Page() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [focusedRosterId, setFocusedRosterId] = useState<string | null>(null);
   const [rosterHovered, setRosterHovered] = useState(false);
+  const [overlayExiting, setOverlayExiting] = useState(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursor = useCursor();
+
+  // Show radial menu immediately when a name is focused; hide after 4s of inactivity
+  useEffect(() => {
+    if (focusedRosterId) {
+      setRosterHovered(true);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => setRosterHovered(false), 4000);
+    } else {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      setRosterHovered(false);
+    }
+    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
+  }, [focusedRosterId]);
+
+  const resetIdleTimer = React.useCallback(() => {
+    setRosterHovered(true);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => setRosterHovered(false), 4000);
+  }, []);
 
   // ── Page-wipe transition ─────────────────────────────────────────────────
   const [curtainPhase, setCurtainPhase] = useState<'idle' | 'covering' | 'uncovering'>('idle');
@@ -1340,6 +1361,11 @@ export default function Page() {
   // ── Roster ───────────────────────────────────────────────────────────────────
 
   if (view === 'roster') {
+    function openStudentDirect(id: string) {
+      setSelectedStudentId(id); setView('student'); setStudentTab('review');
+      setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false);
+      setOverlayExiting(false);
+    }
     function openStudent(id: string)   { navigate(() => { setSelectedStudentId(id); setView('student');     setStudentTab('review'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }); }
     function goAssessment(id: string)  { navigate(() => { setSelectedStudentId(id); setView('assessment');   setFocusedRosterId(null); setRosterHovered(false); }); }
     function goDevelopment(id: string) { navigate(() => { setSelectedStudentId(id); setView('development');  setFocusedRosterId(null); setRosterHovered(false); }); }
@@ -1349,7 +1375,10 @@ export default function Page() {
 
     // Four radial options — all in the design theme palette, no emojis
     const RADIAL: { label: string; icon: React.ReactNode; angle: number; action: () => void; secondary?: boolean }[] = focusedStudent ? [
-      { label: 'Dashboard',   icon: <ChevronRight size={14} />, angle: -90, action: () => openStudent(focusedStudent.id) },
+      { label: 'Dashboard', icon: <ChevronRight size={14} />, angle: -90, action: () => {
+        setOverlayExiting(true);
+        setTimeout(() => openStudentDirect(focusedStudent.id), 520);
+      }},
       { label: 'Assessment',  icon: <Target size={14} />,       angle:   0, action: () => goAssessment(focusedStudent.id),  secondary: true },
       { label: 'Growth',      icon: <TrendingUp size={14} />,   angle: 180, action: () => goDevelopment(focusedStudent.id), secondary: true },
       { label: 'Personalize', icon: <Pencil size={14} />,       angle:  90, action: () => goPersonality(focusedStudent.id), secondary: true },
@@ -1382,15 +1411,18 @@ export default function Page() {
         {focusedRosterId && (
           <div
             className="fixed inset-0 flex items-center justify-center"
-            style={{ backgroundColor: designTheme.main.bg, zIndex: 50, cursor: 'none' }}
+            style={{
+              backgroundColor: designTheme.main.bg, zIndex: 50, cursor: 'none',
+              transform: overlayExiting ? 'translateY(-100%)' : 'translateY(0)',
+              transition: overlayExiting ? 'transform 520ms cubic-bezier(0.4,0,0.2,1)' : 'none',
+            }}
+            onMouseMove={resetIdleTimer}
             onClick={() => { setFocusedRosterId(null); setRosterHovered(false); }}>
 
             {/* Centered name + radial */}
             <div
               className="relative flex items-center justify-center select-none"
               style={{ padding: '80px' }}
-              onMouseEnter={() => setRosterHovered(true)}
-              onMouseLeave={() => setRosterHovered(false)}
               onClick={e => e.stopPropagation()}>
 
               {/* The name */}
