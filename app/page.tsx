@@ -92,6 +92,134 @@ function getThemeStyles(theme: StudentTheme | null, avatarFg: string, avatarBg: 
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AnimatedText — Goodman-style letter-by-letter stagger on mount / key change
+// ─────────────────────────────────────────────────────────────────────────────
+function AnimatedText({
+  text,
+  animKey,
+  className = '',
+  style = {},
+  stagger = 28,
+  delay = 0,
+}: {
+  text: string;
+  animKey?: string | number;
+  className?: string;
+  style?: React.CSSProperties;
+  stagger?: number;
+  delay?: number;
+}) {
+  const [revision, setRevision] = React.useState(0);
+  const prevKey = React.useRef<string | number | undefined>(animKey);
+  if (prevKey.current !== animKey) { prevKey.current = animKey; setRevision(r => r + 1); }
+
+  return (
+    <span className={className} style={{ display: 'inline-block', ...style }} aria-label={text}>
+      {text.split('').map((ch, i) => (
+        <span
+          key={`${revision}-${i}`}
+          aria-hidden
+          style={{
+            display: 'inline-block',
+            whiteSpace: ch === ' ' ? 'pre' : undefined,
+            animation: `gdLetterIn 0.55s cubic-bezier(0.22,1,0.36,1) both`,
+            animationDelay: `${delay + i * stagger}ms`,
+          }}>
+          {ch}
+        </span>
+      ))}
+      <style>{`
+        @keyframes gdLetterIn {
+          from { opacity: 0; transform: translateY(0.35em) scaleY(0.8); }
+          to   { opacity: 1; transform: translateY(0) scaleY(1); }
+        }
+      `}</style>
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// useCursor — custom cursor that morphs on hover
+// ─────────────────────────────────────────────────────────────────────────────
+function useCursor() {
+  const [pos, setPos] = React.useState({ x: -100, y: -100 });
+  const [hovering, setHovering] = React.useState(false);
+  const raf = React.useRef<number>(0);
+  const target = React.useRef({ x: -100, y: -100 });
+  const current = React.useRef({ x: -100, y: -100 });
+
+  React.useEffect(() => {
+    const onMove = (e: MouseEvent) => { target.current = { x: e.clientX, y: e.clientY }; };
+    const onOver = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      setHovering(!!(el.closest('button') || el.closest('a') || el.closest('input')));
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseover', onOver);
+
+    const loop = () => {
+      const ease = 0.14;
+      current.current.x += (target.current.x - current.current.x) * ease;
+      current.current.y += (target.current.y - current.current.y) * ease;
+      setPos({ x: current.current.x, y: current.current.y });
+      raf.current = requestAnimationFrame(loop);
+    };
+    raf.current = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseover', onOver);
+      cancelAnimationFrame(raf.current);
+    };
+  }, []);
+
+  return { pos, hovering };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RosterTile — individual student tile with per-hover letter animation
+// ─────────────────────────────────────────────────────────────────────────────
+function RosterTile({
+  student, cardBg, hoverBg, accentColor, headingColor, bodyColor, onClick,
+}: {
+  student: Student;
+  cardBg: string; hoverBg: string; accentColor: string;
+  headingColor: string; bodyColor: string;
+  onClick: () => void;
+}) {
+  const [hoverCount, setHoverCount] = React.useState(0);
+  const [bg, setBg] = React.useState(cardBg);
+  const [border, setBorder] = React.useState('transparent');
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+        padding: '28px 24px',
+        backgroundColor: bg,
+        border: 'none',
+        borderLeft: `3px solid ${border}`,
+        cursor: 'none',
+        textAlign: 'left',
+        transition: 'background-color 150ms ease, border-color 150ms ease',
+        width: '100%',
+      }}
+      onMouseEnter={() => { setBg(hoverBg); setBorder(accentColor); setHoverCount(c => c + 1); }}
+      onMouseLeave={() => { setBg(cardBg); setBorder('transparent'); }}>
+      <span style={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.02em', color: headingColor, display: 'block' }}>
+        <AnimatedText text={student.name} animKey={hoverCount} stagger={22} />
+      </span>
+      {student.grade && (
+        <span style={{ fontSize: 11, fontWeight: 600, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em', color: bodyColor, opacity: 0.4 }}>
+          {student.grade} grade
+        </span>
+      )}
+    </button>
+  );
+}
+
 function getMonday(date: Date): Date {
   const d = new Date(date); const day = d.getDay();
   d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0, 0, 0, 0); return d;
@@ -1062,6 +1190,7 @@ export default function Page() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [focusedRosterId, setFocusedRosterId] = useState<string | null>(null);
   const [rosterHovered, setRosterHovered] = useState(false);
+  const cursor = useCursor();
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState('');
@@ -1165,13 +1294,33 @@ export default function Page() {
     ] : [];
 
     return (
-      <EditorialShell theme={designTheme} className="min-h-screen" style={{ position: 'relative' }}>
+      <EditorialShell theme={designTheme} className="min-h-screen" style={{ position: 'relative', cursor: 'none' }}>
+
+        {/* ── Custom cursor ── */}
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            left: cursor.pos.x,
+            top: cursor.pos.y,
+            width: cursor.hovering ? 36 : 10,
+            height: cursor.hovering ? 36 : 10,
+            marginLeft: cursor.hovering ? -18 : -5,
+            marginTop: cursor.hovering ? -18 : -5,
+            borderRadius: '50%',
+            backgroundColor: cursor.hovering ? 'transparent' : designTheme.main.heading,
+            border: cursor.hovering ? `1.5px solid ${designTheme.main.heading}` : 'none',
+            transition: 'width 200ms cubic-bezier(0.34,1.56,0.64,1), height 200ms cubic-bezier(0.34,1.56,0.64,1), margin 200ms cubic-bezier(0.34,1.56,0.64,1)',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            mixBlendMode: 'multiply',
+          }} />
 
         {/* ── Focus overlay: selected name centered, radial menu on hover ── */}
         {focusedRosterId && (
           <div
             className="fixed inset-0 flex items-center justify-center"
-            style={{ backgroundColor: designTheme.main.bg, zIndex: 50 }}
+            style={{ backgroundColor: designTheme.main.bg, zIndex: 50, cursor: 'none' }}
             onClick={() => { setFocusedRosterId(null); setRosterHovered(false); }}>
 
             {/* Centered name + radial */}
@@ -1189,9 +1338,9 @@ export default function Page() {
                     fontSize: 'clamp(2.5rem, 8vw, 5rem)',
                     color: designTheme.main.heading,
                     letterSpacing: '-0.03em',
-                    cursor: 'default',
+                    cursor: 'none',
                   }}>
-                  {focusedStudent?.name}
+                  <AnimatedText text={focusedStudent?.name ?? ''} animKey={focusedRosterId} stagger={32} />
                 </h2>
                 {focusedStudent?.grade && (
                   <p className="text-sm font-semibold uppercase tracking-widest mt-2"
@@ -1204,12 +1353,13 @@ export default function Page() {
                 </p>
               </div>
 
-              {/* Radial buttons */}
+              {/* Radial buttons — elliptical orbit so horizontal items clear the wide name */}
               {RADIAL.map((item, i) => {
                 const rad = (item.angle * Math.PI) / 180;
-                const radius = 140;
-                const x = Math.cos(rad) * radius;
-                const y = Math.sin(rad) * radius;
+                const rx = 290; // wider horizontal axis
+                const ry = 175; // tighter vertical axis
+                const x = Math.cos(rad) * rx;
+                const y = Math.sin(rad) * ry;
                 return (
                   <button
                     key={i}
@@ -1301,44 +1451,16 @@ export default function Page() {
           {/* Name tiles */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1px', marginBottom: '2rem' }}>
             {students.map(student => (
-              <button
+              <RosterTile
                 key={student.id}
+                student={student}
+                cardBg={designTheme.main.card}
+                hoverBg={`${designTheme.main.btn}08`}
+                accentColor={designTheme.main.accent}
+                headingColor={designTheme.main.heading}
+                bodyColor={designTheme.main.body}
                 onClick={() => { setFocusedRosterId(student.id); setRosterHovered(false); }}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-                  padding: '28px 24px',
-                  backgroundColor: designTheme.main.card,
-                  border: 'none',
-                  borderLeft: `3px solid transparent`,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'background-color 150ms ease, border-color 150ms ease',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${designTheme.main.btn}08`;
-                  (e.currentTarget as HTMLButtonElement).style.borderLeftColor = designTheme.main.accent;
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = designTheme.main.card;
-                  (e.currentTarget as HTMLButtonElement).style.borderLeftColor = 'transparent';
-                }}>
-                <span style={{
-                  fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1,
-                  letterSpacing: '-0.02em',
-                  color: designTheme.main.heading,
-                }}>
-                  {student.name}
-                </span>
-                {student.grade && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, marginTop: 6,
-                    textTransform: 'uppercase', letterSpacing: '0.08em',
-                    color: designTheme.main.body, opacity: 0.4,
-                  }}>
-                    {student.grade} grade
-                  </span>
-                )}
-              </button>
+              />
             ))}
 
             {/* Add student tile */}
