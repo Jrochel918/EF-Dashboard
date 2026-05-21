@@ -52,6 +52,7 @@ type StudentTheme = {
   tagline: string;
   vibe: string;
   darkMode: boolean;
+  customRadialLabel?: string;
 };
 
 const PRESET_CONFIGS: Record<ThemePreset, {
@@ -1373,15 +1374,16 @@ export default function Page() {
 
     const focusedStudent = students.find(s => s.id === focusedRosterId) ?? null;
 
-    // Four radial options — all in the design theme palette, no emojis
+    // Four radial options
+    const customLabel = studentThemes[focusedStudent?.id ?? '']?.customRadialLabel ?? 'Custom';
     const RADIAL: { label: string; icon: React.ReactNode; angle: number; action: () => void; secondary?: boolean }[] = focusedStudent ? [
       { label: 'Dashboard', icon: <ChevronRight size={14} />, angle: -90, action: () => {
         setOverlayExiting(true);
         setTimeout(() => openStudentDirect(focusedStudent.id), 520);
       }},
-      { label: 'Assessment',  icon: <Target size={14} />,       angle:   0, action: () => goAssessment(focusedStudent.id),  secondary: true },
-      { label: 'Growth',      icon: <TrendingUp size={14} />,   angle: 180, action: () => goDevelopment(focusedStudent.id), secondary: true },
-      { label: 'Personalize', icon: <Pencil size={14} />,       angle:  90, action: () => goPersonality(focusedStudent.id), secondary: true },
+      { label: 'Growth',    icon: <TrendingUp size={14} />,   angle: 180, action: () => goDevelopment(focusedStudent.id), secondary: true },
+      { label: 'Drills',    icon: <Play size={14} />,         angle:   0, action: () => navigate(() => { setSelectedStudentId(focusedStudent.id); setView('student'); setStudentTab('focus'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }), secondary: true },
+      { label: customLabel, icon: <Star size={14} />,         angle:  90, action: () => goPersonality(focusedStudent.id), secondary: true },
     ] : [];
 
     return (
