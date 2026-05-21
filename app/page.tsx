@@ -159,7 +159,7 @@ function useCursor() {
     window.addEventListener('mouseover', onOver);
 
     const loop = () => {
-      const ease = 0.09;
+      const ease = 0.22;
       current.current.x += (target.current.x - current.current.x) * ease;
       current.current.y += (target.current.y - current.current.y) * ease;
       setPos({ x: current.current.x, y: current.current.y });
