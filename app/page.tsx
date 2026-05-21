@@ -8,6 +8,8 @@ import {
   Heart, Target, ChevronDown, Play, Pause, RotateCcw, Pencil, CalendarPlus,
 } from 'lucide-react';
 import { EditorialShell, DESIGN_THEMES, DesignTheme } from '../design-system';
+import { createClient } from '../lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1235,6 +1237,70 @@ export default function Page() {
   const radialVisibleRef = useRef(false);
   const cursor = useCursor();
 
+  // ── Auth (Supabase) ──────────────────────────────────────────────────────────
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
+  const supabase = React.useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    // Check existing session
+    supabase.auth.getUser().then(({ data }) => {
+      setSupabaseUser(data.user ?? null);
+      // If a student is already logged in via Google, auto-match them
+      if (data.user?.email) {
+        const matched = students.find(s =>
+          s.name.toLowerCase().replace(/\s+/g, '') ===
+          (data.user!.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
+        );
+        if (matched) {
+          setStudentMode(true);
+          setSelectedStudentId(matched.id);
+          setPrivacyAccepted(true);
+        }
+      }
+    });
+
+    // Listen for sign-in / sign-out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSupabaseUser(session?.user ?? null);
+      if (session?.user?.email) {
+        const matched = students.find(s =>
+          s.name.toLowerCase().replace(/\s+/g, '') ===
+          (session.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
+        );
+        if (matched) {
+          setStudentMode(true);
+          setSelectedStudentId(matched.id);
+          setPrivacyAccepted(true);
+          navigate(() => { setView('student'); setStudentTab('overview'); setTabVisible(true); });
+        }
+      } else {
+        // Signed out
+        setStudentMode(false);
+        setPrivacyAccepted(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
+
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'https://www.googleapis.com/auth/calendar.events',
+      },
+    });
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setStudentMode(false);
+    setPrivacyAccepted(false);
+    navigate(() => setView('student-login'));
+  };
+
   // ── Student login / mode ─────────────────────────────────────────────────────
   const [studentMode, setStudentMode] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -1507,7 +1573,37 @@ export default function Page() {
           <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.3, marginBottom: 40 }}>EF Dashboard — Student login</p>
           <h1 style={{ fontSize: 'clamp(2.2rem, 5vw, 3rem)', fontWeight: 300, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 48 }}>Who are you?</h1>
 
-          {/* Student list */}
+          {/* Google sign-in */}
+          {supabaseUser ? (
+            <div style={{ marginBottom: 32 }}>
+              <p style={{ fontSize: '0.75rem', color: '#000', opacity: 0.5, marginBottom: 12 }}>
+                Signed in as <strong style={{ opacity: 1 }}>{supabaseUser.email}</strong>
+              </p>
+              <button onClick={handleSignOut}
+                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.35, background: 'none', border: 'none', cursor: 'none', padding: 0 }}>
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div style={{ marginBottom: 40 }}>
+              <button onClick={() => { if (!privacyAccepted) { setShowPrivacy(true); return; } handleGoogleSignIn(); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', backgroundColor: '#000', color: '#fff', border: 'none', cursor: 'none', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.04em' }}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#fff" opacity=".9"/>
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#fff" opacity=".9"/>
+                  <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#fff" opacity=".9"/>
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#fff" opacity=".9"/>
+                </svg>
+                Continue with Google
+              </button>
+              <p style={{ marginTop: 10, fontSize: '0.65rem', color: '#000', opacity: 0.35, textAlign: 'center' }}>
+                Your Google account identifies you. No password needed.
+              </p>
+            </div>
+          )}
+
+          {/* Student list (manual fallback if not using Google) */}
+          <p style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.3, marginBottom: 16 }}>Or select manually</p>
           <div style={{ borderBottom: '1px solid #000' }}>
             {students.map(student => (
               <button key={student.id}
@@ -1934,7 +2030,7 @@ export default function Page() {
         <header style={{ backgroundColor: '#000', borderBottom: '1px solid #222', flexShrink: 0 }}>
           <div className="flex items-center gap-4 px-6 py-4">
             {studentMode ? (
-              <button onClick={() => { setStudentMode(false); navigate(() => setView('student-login')); }}
+              <button onClick={() => handleSignOut()}
                 className="flex items-center gap-1.5 text-xs flex-shrink-0"
                 style={{ color: 'rgba(255,255,255,0.5)' }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
