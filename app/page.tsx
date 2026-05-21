@@ -1196,6 +1196,30 @@ export default function Page() {
   const [focusedRosterId, setFocusedRosterId] = useState<string | null>(null);
   const [rosterHovered, setRosterHovered] = useState(false);
   const cursor = useCursor();
+
+  // ── Page-wipe transition ─────────────────────────────────────────────────
+  const [curtainPhase, setCurtainPhase] = useState<'idle' | 'covering' | 'uncovering'>('idle');
+  const pendingNavRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (curtainPhase === 'covering') {
+      const t = setTimeout(() => {
+        pendingNavRef.current?.();
+        pendingNavRef.current = null;
+        setCurtainPhase('uncovering');
+      }, 340);
+      return () => clearTimeout(t);
+    }
+    if (curtainPhase === 'uncovering') {
+      const t = setTimeout(() => setCurtainPhase('idle'), 340);
+      return () => clearTimeout(t);
+    }
+  }, [curtainPhase]);
+
+  function navigate(callback: () => void) {
+    pendingNavRef.current = callback;
+    setCurtainPhase('covering');
+  }
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [newName, setNewName] = useState('');
   const [newGrade, setNewGrade] = useState('');
@@ -1242,25 +1266,46 @@ export default function Page() {
       ...prev,
       ...newHabits.map((text, i) => ({ id: `h-${Date.now()}-${i}`, studentId, text })),
     ]);
-    setView('student');
+    navigate(() => setView('student'));
   }
+
+  // ── Page-wipe curtain (renders above every view) ─────────────────────────────
+  const Curtain = curtainPhase !== 'idle' ? (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      backgroundColor: designTheme.sidebar.bg,
+      animation: curtainPhase === 'covering'
+        ? 'gdCurtainDown 340ms cubic-bezier(0.76,0,0.24,1) forwards'
+        : 'gdCurtainContinue 340ms cubic-bezier(0.76,0,0.24,1) forwards',
+      pointerEvents: 'all',
+    }}>
+      <style>{`
+        @keyframes gdCurtainDown {
+          from { transform: translateY(-100%); }
+          to   { transform: translateY(0); }
+        }
+        @keyframes gdCurtainContinue {
+          from { transform: translateY(0); }
+          to   { transform: translateY(100%); }
+        }
+      `}</style>
+    </div>
+  ) : null;
 
   // ── Personality view ─────────────────────────────────────────────────────────
 
   if (view === 'personality' && selectedStudent) {
     return (
-      <EditorialShell theme={designTheme}>
+      <><EditorialShell theme={designTheme}>
         <PersonalityQuestionnaire
           student={selectedStudent}
           onComplete={theme => {
             setStudentThemes(prev => ({ ...prev, [selectedStudent.id]: theme }));
-            setView('student');
-            setStudentTab('space');
-            setTabVisible(true);
+            navigate(() => { setView('student'); setStudentTab('space'); setTabVisible(true); });
           }}
-          onBack={() => setView('student')}
+          onBack={() => navigate(() => setView('student'))}
         />
-      </EditorialShell>
+      </EditorialShell>{Curtain}</>
     );
   }
 
@@ -1269,24 +1314,24 @@ export default function Page() {
   if (view === 'assessment' && selectedStudent) {
     const [fg] = getAvatarColors(selectedStudent.name);
     return (
-      <EditorialShell theme={designTheme}>
+      <><EditorialShell theme={designTheme}>
         <AssessmentView
           student={selectedStudent}
           fg={fg}
           onComplete={(ratings, habits, saAnswers) => applyAssessment(selectedStudent.id, ratings, habits, saAnswers)}
-          onBack={() => setView('student')}
+          onBack={() => navigate(() => setView('student'))}
         />
-      </EditorialShell>
+      </EditorialShell>{Curtain}</>
     );
   }
 
   // ── Roster ───────────────────────────────────────────────────────────────────
 
   if (view === 'roster') {
-    function openStudent(id: string)   { setSelectedStudentId(id); setView('student');     setStudentTab('review'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }
-    function goAssessment(id: string)  { setSelectedStudentId(id); setView('assessment');   setFocusedRosterId(null); setRosterHovered(false); }
-    function goDevelopment(id: string) { setSelectedStudentId(id); setView('development');  setFocusedRosterId(null); setRosterHovered(false); }
-    function goPersonality(id: string) { setSelectedStudentId(id); setView('personality');  setFocusedRosterId(null); setRosterHovered(false); }
+    function openStudent(id: string)   { navigate(() => { setSelectedStudentId(id); setView('student');     setStudentTab('review'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }); }
+    function goAssessment(id: string)  { navigate(() => { setSelectedStudentId(id); setView('assessment');   setFocusedRosterId(null); setRosterHovered(false); }); }
+    function goDevelopment(id: string) { navigate(() => { setSelectedStudentId(id); setView('development');  setFocusedRosterId(null); setRosterHovered(false); }); }
+    function goPersonality(id: string) { navigate(() => { setSelectedStudentId(id); setView('personality');  setFocusedRosterId(null); setRosterHovered(false); }); }
 
     const focusedStudent = students.find(s => s.id === focusedRosterId) ?? null;
 
@@ -1299,7 +1344,7 @@ export default function Page() {
     ] : [];
 
     return (
-      <EditorialShell theme={designTheme} className="min-h-screen" style={{ position: 'relative', cursor: 'none' }}>
+      <><EditorialShell theme={designTheme} className="min-h-screen" style={{ position: 'relative', cursor: 'none' }}>
 
         {/* ── Custom cursor ── */}
         <div
@@ -1530,7 +1575,7 @@ export default function Page() {
             )}
           </div>
         </div>
-      </EditorialShell>
+      </EditorialShell>{Curtain}</>
     );
   }
 
@@ -1582,12 +1627,12 @@ export default function Page() {
     const accent = designTheme.main.accent;
 
     return (
-      <EditorialShell theme={designTheme} className="h-screen flex flex-col overflow-hidden" style={{ background: designTheme.main.bg }}>
+      <><EditorialShell theme={designTheme} className="h-screen flex flex-col overflow-hidden" style={{ background: designTheme.main.bg }}>
 
         {/* ── Top header ── */}
         <header style={{ backgroundColor: designTheme.sidebar.bg, borderBottom: `1px solid ${designTheme.sidebar.border}`, flexShrink: 0 }}>
           <div className="flex items-center gap-4 px-6 py-4">
-            <button onClick={() => setView('roster')}
+            <button onClick={() => navigate(() => setView('roster'))}
               className="flex items-center gap-1.5 text-xs flex-shrink-0 transition-opacity hover:opacity-70"
               style={{ color: designTheme.sidebar.text, opacity: 0.55 }}>
               <ArrowLeft size={13} /> All students
@@ -1636,17 +1681,17 @@ export default function Page() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => setView('development')}
+              <button onClick={() => navigate(() => setView('development'))}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-opacity hover:opacity-80"
                 style={{ backgroundColor: designTheme.sidebar.accent, color: '#fff' }}>
                 <TrendingUp size={12} /> Growth
               </button>
-              <button onClick={() => setView('assessment')}
+              <button onClick={() => navigate(() => setView('assessment'))}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
                 style={{ borderColor: `${designTheme.sidebar.text}30`, color: designTheme.sidebar.text, opacity: 0.75 }}>
                 <Target size={12} /> Assessment
               </button>
-              <button onClick={() => setView('personality')}
+              <button onClick={() => navigate(() => setView('personality'))}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
                 style={{ borderColor: `${designTheme.sidebar.text}30`, color: designTheme.sidebar.text, opacity: 0.75 }}>
                 <Smile size={12} /> {theme ? 'Redo theme' : 'Personalize'}
@@ -1681,7 +1726,7 @@ export default function Page() {
               <div style={cardStyle}>
                 <div className="flex items-start justify-between mb-3">
                   <SectionLabel title="Last week's goals & habits" sub={weekLabel(lastWeek)} />
-                  <button onClick={() => setView('development')}
+                  <button onClick={() => navigate(() => setView('development'))}
                     className="text-xs font-semibold flex items-center gap-1 px-3 py-1.5 hover:opacity-80 flex-shrink-0 ml-3"
                     style={{ backgroundColor: designTheme.main.btn, color: designTheme.main.btnText }}>
                     Overall development <ChevronRight size={12} />
@@ -1841,7 +1886,7 @@ export default function Page() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => setView('personality')}
+                    onClick={() => navigate(() => setView('personality'))}
                     className="w-full border-2 border-dashed p-6 text-sm font-medium transition-opacity hover:opacity-70 flex flex-col items-center gap-2"
                     style={{ borderColor: `${accent}50`, color: accent }}>
                     <Smile size={22} />
@@ -1854,7 +1899,7 @@ export default function Page() {
 
           </div>
         </main>
-      </EditorialShell>
+      </EditorialShell>{Curtain}</>
     );
   }
 
@@ -1882,9 +1927,9 @@ export default function Page() {
       : [];
 
     return (
-      <EditorialShell theme={designTheme} className="min-h-screen">
+      <><EditorialShell theme={designTheme} className="min-h-screen">
         <div className="max-w-2xl mx-auto px-4 py-6">
-          <button onClick={() => setView('student')} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6"><ArrowLeft size={15} /> Back to dashboard</button>
+          <button onClick={() => navigate(() => setView('student'))} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6"><ArrowLeft size={15} /> Back to dashboard</button>
           <h1 className="text-xl font-bold text-stone-800 mb-1">My growth — {student.name}</h1>
           <p className="text-sm text-stone-500 mb-6">{studentSessions.length} sessions together</p>
 
@@ -1951,7 +1996,7 @@ export default function Page() {
             </div>
           </Card>
         </div>
-      </EditorialShell>
+      </EditorialShell>{Curtain}</>
     );
   }
 
