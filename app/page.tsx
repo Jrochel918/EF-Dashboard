@@ -1210,25 +1210,36 @@ export default function Page() {
   const [rosterHovered, setRosterHovered] = useState(false);
   const [overlayExiting, setOverlayExiting] = useState(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const radialVisibleRef = useRef(false);
   const cursor = useCursor();
 
-  // Show radial menu immediately when a name is focused; hide after 4s of inactivity
+  // Clear timer & hide radial whenever focus changes
   useEffect(() => {
-    if (focusedRosterId) {
-      setRosterHovered(true);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = setTimeout(() => setRosterHovered(false), 4000);
-    } else {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      setRosterHovered(false);
-    }
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    radialVisibleRef.current = false;
+    setRosterHovered(false);
     return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
   }, [focusedRosterId]);
 
-  const resetIdleTimer = React.useCallback(() => {
+  // Call when mouse enters the name: shows the radial and starts 4s idle clock
+  const showRadial = React.useCallback(() => {
+    radialVisibleRef.current = true;
     setRosterHovered(true);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => setRosterHovered(false), 4000);
+    idleTimerRef.current = setTimeout(() => {
+      radialVisibleRef.current = false;
+      setRosterHovered(false);
+    }, 4000);
+  }, []);
+
+  // Call on any mouse movement over the overlay: only extends timer if radial is already visible
+  const keepRadialAlive = React.useCallback(() => {
+    if (!radialVisibleRef.current) return;
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      radialVisibleRef.current = false;
+      setRosterHovered(false);
+    }, 4000);
   }, []);
 
   // ── Page-wipe transition ─────────────────────────────────────────────────
@@ -1418,7 +1429,7 @@ export default function Page() {
               transform: overlayExiting ? 'translateY(-100%)' : 'translateY(0)',
               transition: overlayExiting ? 'transform 520ms cubic-bezier(0.4,0,0.2,1)' : 'none',
             }}
-            onMouseMove={resetIdleTimer}
+            onMouseMove={keepRadialAlive}
             onClick={() => { setFocusedRosterId(null); setRosterHovered(false); }}>
 
             {/* Centered name + radial */}
@@ -1427,8 +1438,8 @@ export default function Page() {
               style={{ padding: '80px' }}
               onClick={e => e.stopPropagation()}>
 
-              {/* The name */}
-              <div className="text-center">
+              {/* The name — hovering this triggers the radial */}
+              <div className="text-center" onMouseEnter={showRadial}>
                 <h2 className="font-black leading-none"
                   style={{
                     fontSize: 'clamp(2.5rem, 8vw, 5rem)',
