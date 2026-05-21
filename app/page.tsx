@@ -159,7 +159,7 @@ function useCursor() {
     window.addEventListener('mouseover', onOver);
 
     const loop = () => {
-      const ease = 0.14;
+      const ease = 0.42;
       current.current.x += (target.current.x - current.current.x) * ease;
       current.current.y += (target.current.y - current.current.y) * ease;
       setPos({ x: current.current.x, y: current.current.y });
@@ -189,30 +189,35 @@ function RosterTile({
   onClick: () => void;
 }) {
   const [hoverCount, setHoverCount] = React.useState(0);
-  const [bg, setBg] = React.useState(cardBg);
-  const [border, setBorder] = React.useState('transparent');
+  const [isHovered, setIsHovered] = React.useState(false);
 
   return (
     <button
       onClick={onClick}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-        padding: '28px 24px',
-        backgroundColor: bg,
+        justifyContent: 'flex-end',
+        padding: '36px 32px',
+        minHeight: '160px',
+        backgroundColor: isHovered ? hoverBg : cardBg,
         border: 'none',
-        borderLeft: `3px solid ${border}`,
+        borderLeft: `3px solid ${isHovered ? accentColor : 'transparent'}`,
+        boxShadow: isHovered
+          ? '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)'
+          : '0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
         cursor: 'none',
         textAlign: 'left',
-        transition: 'background-color 150ms ease, border-color 150ms ease',
+        transition: 'background-color 180ms ease, border-color 180ms ease, box-shadow 200ms ease, transform 180ms ease',
+        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
         width: '100%',
       }}
-      onMouseEnter={() => { setBg(hoverBg); setBorder(accentColor); setHoverCount(c => c + 1); }}
-      onMouseLeave={() => { setBg(cardBg); setBorder('transparent'); }}>
-      <span style={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.02em', color: headingColor, display: 'block' }}>
+      onMouseEnter={() => { setIsHovered(true); setHoverCount(c => c + 1); }}
+      onMouseLeave={() => setIsHovered(false)}>
+      <span style={{ fontSize: '1.4rem', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.02em', color: headingColor, display: 'block' }}>
         <AnimatedText text={student.name} animKey={hoverCount} stagger={22} />
       </span>
       {student.grade && (
-        <span style={{ fontSize: 11, fontWeight: 600, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.08em', color: bodyColor, opacity: 0.4 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.08em', color: bodyColor, opacity: 0.4 }}>
           {student.grade} grade
         </span>
       )}
@@ -1449,7 +1454,7 @@ export default function Page() {
           </div>
 
           {/* Name tiles */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1px', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px', marginBottom: '2rem' }}>
             {students.map(student => (
               <RosterTile
                 key={student.id}
@@ -1505,10 +1510,11 @@ export default function Page() {
                 onClick={() => setShowAddStudent(true)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '28px 24px',
+                  padding: '36px 32px',
+                  minHeight: '160px',
                   backgroundColor: 'transparent',
                   border: `1.5px dashed ${designTheme.main.cardBorder}`,
-                  cursor: 'pointer',
+                  cursor: 'none',
                   transition: 'border-color 150ms ease',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = designTheme.main.btn)}
