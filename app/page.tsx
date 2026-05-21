@@ -159,7 +159,7 @@ function useCursor() {
     window.addEventListener('mouseover', onOver);
 
     const loop = () => {
-      const ease = 0.22;
+      const ease = 1;
       current.current.x += (target.current.x - current.current.x) * ease;
       current.current.y += (target.current.y - current.current.y) * ease;
       setPos({ x: current.current.x, y: current.current.y });
@@ -196,12 +196,11 @@ function RosterTile({
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         width: '100%',
         padding: '22px 0',
-        backgroundColor: isHovered ? '#000000' : '#ffffff',
+        backgroundColor: '#ffffff',
         border: 'none',
         borderTop: '1px solid #000000',
         cursor: 'none',
         textAlign: 'left',
-        transition: 'background-color 280ms cubic-bezier(0.4,0,0.2,1)',
       }}
       onMouseEnter={() => { setIsHovered(true); setHoverCount(c => c + 1); }}
       onMouseLeave={() => setIsHovered(false)}>
@@ -211,8 +210,9 @@ function RosterTile({
         fontWeight: 400,
         lineHeight: 1,
         letterSpacing: '-0.025em',
-        color: isHovered ? '#ffffff' : '#000000',
-        transition: 'color 280ms cubic-bezier(0.4,0,0.2,1)',
+        color: '#000000',
+        opacity: isHovered ? 0.4 : 1,
+        transition: 'opacity 200ms ease',
         display: 'block',
       }}>
         <AnimatedText text={student.name} animKey={hoverCount} stagger={18} />
@@ -224,8 +224,9 @@ function RosterTile({
           fontWeight: 600,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
-          color: isHovered ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)',
-          transition: 'color 280ms cubic-bezier(0.4,0,0.2,1)',
+          color: '#000',
+          opacity: isHovered ? 0.2 : 0.35,
+          transition: 'opacity 200ms ease',
           flexShrink: 0,
           marginLeft: '2rem',
         }}>
