@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(mkdir -p /Users/jrochelson/Projects/ef-dashboard/.claude)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(kill 36541)",
+      "Bash(sleep 4 && tail -20 /tmp/ef-dev.log)",
+      "Bash(pkill -f \"next dev\")"
+    ]
+  }
+}
