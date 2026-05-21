@@ -1390,7 +1390,7 @@ export default function Page() {
     const RADIAL: { label: string; icon: React.ReactNode; angle: number; action: () => void; secondary?: boolean }[] = focusedStudent ? [
       { label: 'Dashboard', icon: <ChevronRight size={14} />, angle: -90, action: () => {
         setOverlayExiting(true);
-        setTimeout(() => openStudentDirect(focusedStudent.id), 520);
+        setTimeout(() => openStudentDirect(focusedStudent.id), 280);
       }},
       { label: 'Growth',    icon: <TrendingUp size={14} />,   angle: 180, action: () => goDevelopment(focusedStudent.id), secondary: true },
       { label: 'Drills',    icon: <Play size={14} />,         angle:   0, action: () => navigate(() => { setSelectedStudentId(focusedStudent.id); setView('student'); setStudentTab('focus'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }), secondary: true },
@@ -1426,8 +1426,8 @@ export default function Page() {
             className="fixed inset-0 flex items-center justify-center"
             style={{
               backgroundColor: designTheme.main.bg, zIndex: 50, cursor: 'none',
-              transform: overlayExiting ? 'translateY(-100%)' : 'translateY(0)',
-              transition: overlayExiting ? 'transform 520ms cubic-bezier(0.4,0,0.2,1)' : 'none',
+              opacity: overlayExiting ? 0 : 1,
+              transition: overlayExiting ? 'opacity 280ms ease' : 'none',
             }}
             onMouseMove={keepRadialAlive}
             onClick={() => { setFocusedRosterId(null); setRosterHovered(false); }}>
