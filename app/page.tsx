@@ -2095,9 +2095,17 @@ export default function Page() {
             </div>
             {/* Theme switcher + pixel toggle */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-              <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#000', opacity: 0.35 }}>
-                Coach view
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#000', opacity: 0.35, margin: 0 }}>
+                  Coach view
+                </p>
+                <button onClick={handleSignOut}
+                  style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none', padding: 0 }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}>
+                  Sign out
+                </button>
+              </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {DESIGN_THEMES.map((t: DesignTheme) => (
                   <button key={t.id} onClick={() => setDesignTheme(t)} title={t.name}
