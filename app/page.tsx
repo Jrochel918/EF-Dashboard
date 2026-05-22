@@ -1410,9 +1410,20 @@ export default function Page() {
           headers: { Authorization: `Bearer ${googleToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
-        // Token may have expired
         if (res.status === 401) { setGoogleToken(null); await handleGoogleSignIn(); break; }
-      } catch { /* ignore individual failures */ }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('Calendar API error:', res.status, err);
+          setGcalAdding(false);
+          setAuthError(`Calendar error ${res.status}: ${err?.error?.message ?? 'Unknown error'}`);
+          return;
+        }
+      } catch (e) {
+        console.error('Calendar fetch failed:', e);
+        setGcalAdding(false);
+        setAuthError('Network error adding to Calendar');
+        return;
+      }
     }
     setGcalAdding(false);
     setGcalSuccess(true);
@@ -2182,6 +2193,7 @@ export default function Page() {
                     <SectionLabel title="Week ahead" sub={weekLabel(thisWeek)} />
                     {/* Google Calendar: add-all or connect */}
                     <div style={{ flexShrink: 0, marginLeft: 12 }}>
+                      {authError && <p style={{ fontSize: '0.65rem', color: '#c00', marginBottom: 6 }}>{authError}</p>}
                       {gcalSuccess ? (
                         <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#16a34a' }}>✓ Added to Calendar</span>
                       ) : googleToken ? (
