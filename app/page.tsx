@@ -1361,7 +1361,7 @@ type FocusTab = 'pomodoro' | 'chunking';
 type StudentTab = 'looking-back' | 'looking-ahead' | 'growth' | 'drills' | 'space';
 
 // ── Coach PIN ─────────────────────────────────────────────────────────────────
-const COACH_PIN = '1234'; // ← change this to whatever you want
+// Coach role is set via app_metadata.role = "coach" in Supabase dashboard.
 
 // ── localStorage hook ──────────────────────────────────────────────────────────
 // Two-pass: start with initial (safe for SSR), load from storage after hydration,
@@ -1389,25 +1389,8 @@ function useLocalStorage<T>(key: string, initial: T): [T, React.Dispatch<React.S
 }
 
 export default function Page() {
-  // Coach PIN — persists for the browser session (clears on tab close)
-  const [coachUnlocked, setCoachUnlocked] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('ef-coach-unlocked') === '1';
-  });
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
-
-  function submitPin(e: React.FormEvent) {
-    e.preventDefault();
-    if (pinInput === COACH_PIN) {
-      sessionStorage.setItem('ef-coach-unlocked', '1');
-      setCoachUnlocked(true);
-      setPinError(false);
-    } else {
-      setPinError(true);
-      setPinInput('');
-    }
-  }
+  // isCoach: true when the signed-in user has app_metadata.role === 'coach' in Supabase
+  // (set this via Dashboard → Authentication → Users → Raw App Meta Data)
 
   const [view, setView] = useState<View>('roster');
   const [focusTab, setFocusTab] = useState<FocusTab>('pomodoro');
@@ -1436,21 +1419,31 @@ export default function Page() {
   // ── Auth (Supabase) ──────────────────────────────────────────────────────────
   const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
   const supabase = React.useMemo(() => createClient(), []);
+  // Derived from Supabase app_metadata — no extra fetch needed
+  const isCoach = supabaseUser?.app_metadata?.role === 'coach';
 
   useEffect(() => {
     // Check existing session
     supabase.auth.getUser().then(({ data }) => {
       setSupabaseUser(data.user ?? null);
-      // If a student is already logged in via Google, auto-match them
-      if (data.user?.email) {
-        const matched = students.find(s =>
-          s.name.toLowerCase().replace(/\s+/g, '') ===
-          (data.user!.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
-        );
-        if (matched) {
-          setStudentMode(true);
-          setSelectedStudentId(matched.id);
-          setPrivacyAccepted(true);
+      if (data.user) {
+        const role = data.user.app_metadata?.role;
+        if (role === 'coach') {
+          // Coach — stay on roster (default view)
+          return;
+        }
+        // If a student is already logged in via Google, auto-match them
+        if (data.user.email) {
+          const emailPrefix = (data.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
+          const matched = students.find(s => {
+            const parts = s.name.toLowerCase().split(/\s+/);
+            return emailPrefix === parts.join('') || emailPrefix === [...parts].reverse().join('');
+          });
+          if (matched) {
+            setStudentMode(true);
+            setSelectedStudentId(matched.id);
+            setPrivacyAccepted(true);
+          }
         }
       }
     });
@@ -1460,19 +1453,26 @@ export default function Page() {
       setSupabaseUser(session?.user ?? null);
       // Capture Google provider token for Calendar API use
       if (session?.provider_token) setGoogleToken(session.provider_token);
-      if (session?.user?.email) {
-        const emailPrefix = (session.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
-        const matched = students.find(s => {
-          const parts = s.name.toLowerCase().split(/\s+/);
-          const forward = parts.join('');                      // johnsmith
-          const reverse = [...parts].reverse().join('');       // smithjohn
-          return emailPrefix === forward || emailPrefix === reverse;
-        });
-        if (matched) {
-          setStudentMode(true);
-          setSelectedStudentId(matched.id);
-          setPrivacyAccepted(true);
-          navigate(() => { setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); });
+      if (session?.user) {
+        const role = session.user.app_metadata?.role;
+        if (role === 'coach') {
+          // Coach signed in — go straight to roster
+          navigate(() => setView('roster'));
+        } else if (session.user.email) {
+          // Try to match as a student
+          const emailPrefix = (session.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
+          const matched = students.find(s => {
+            const parts = s.name.toLowerCase().split(/\s+/);
+            const forward = parts.join('');
+            const reverse = [...parts].reverse().join('');
+            return emailPrefix === forward || emailPrefix === reverse;
+          });
+          if (matched) {
+            setStudentMode(true);
+            setSelectedStudentId(matched.id);
+            setPrivacyAccepted(true);
+            navigate(() => { setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); });
+          }
         }
       } else {
         // Signed out
@@ -1854,8 +1854,8 @@ export default function Page() {
 
   // ── Roster ───────────────────────────────────────────────────────────────────
 
-  // ── Coach PIN gate ───────────────────────────────────────────────────────────
-  if (view === 'roster' && !coachUnlocked) {
+  // ── Coach gate — must be signed in with role === 'coach' ────────────────────
+  if (view === 'roster' && !isCoach) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#fff', fontFamily: 'var(--font-space-grotesk), sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'none', position: 'relative' }}>
         <div aria-hidden style={{ position: 'fixed', left: cursor.pos.x, top: cursor.pos.y, width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: '50%', backgroundColor: '#000', pointerEvents: 'none', zIndex: 9999 }} />
@@ -1863,30 +1863,14 @@ export default function Page() {
         <div style={{ width: '100%', maxWidth: 360, padding: '0 24px' }}>
           <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.3, marginBottom: 32 }}>EF Dashboard</p>
           <h1 style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 300, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 48 }}>Coach access</h1>
-          <form onSubmit={submitPin}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={8}
-                autoFocus
-                value={pinInput}
-                onChange={e => { setPinInput(e.target.value); setPinError(false); }}
-                placeholder="Enter PIN"
-                style={{
-                  width: '100%', border: 'none', borderBottom: `2px solid ${pinError ? '#c00' : '#000'}`,
-                  padding: '12px 0', fontSize: '1.5rem', letterSpacing: '0.3em',
-                  background: 'transparent', outline: 'none', color: '#000',
-                  fontFamily: 'inherit', textAlign: 'center',
-                }}
-              />
-              {pinError && <p style={{ fontSize: '0.75rem', color: '#c00', textAlign: 'center' }}>Incorrect PIN</p>}
-              <button type="submit"
-                style={{ width: '100%', padding: '12px 0', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'none' }}>
-                Enter
-              </button>
-            </div>
-          </form>
+          <p style={{ fontSize: '0.875rem', color: '#000', opacity: 0.5, lineHeight: 1.6, marginBottom: 40 }}>
+            Sign in with your Google account to access the roster.
+          </p>
+          {authError && <p style={{ fontSize: '0.75rem', color: '#c00', marginBottom: 16 }}>{authError}</p>}
+          <button onClick={handleGoogleSignIn} disabled={signingIn}
+            style={{ width: '100%', padding: '14px 0', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'none', opacity: signingIn ? 0.5 : 1 }}>
+            {signingIn ? 'Redirecting…' : 'Sign in with Google'}
+          </button>
           <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => navigate(() => setView('student-login'))}
               style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none' }}
