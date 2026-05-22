@@ -1360,6 +1360,9 @@ type View = 'roster' | 'student' | 'assessment' | 'personality' | 'student-login
 type FocusTab = 'pomodoro' | 'chunking';
 type StudentTab = 'looking-back' | 'looking-ahead' | 'growth' | 'drills' | 'space';
 
+// ── Coach PIN ─────────────────────────────────────────────────────────────────
+const COACH_PIN = '1234'; // ← change this to whatever you want
+
 // ── localStorage hook ──────────────────────────────────────────────────────────
 function useLocalStorage<T>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState<T>(() => {
@@ -1376,6 +1379,26 @@ function useLocalStorage<T>(key: string, initial: T): [T, React.Dispatch<React.S
 }
 
 export default function Page() {
+  // Coach PIN — persists for the browser session (clears on tab close)
+  const [coachUnlocked, setCoachUnlocked] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('ef-coach-unlocked') === '1';
+  });
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  function submitPin(e: React.FormEvent) {
+    e.preventDefault();
+    if (pinInput === COACH_PIN) {
+      sessionStorage.setItem('ef-coach-unlocked', '1');
+      setCoachUnlocked(true);
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  }
+
   const [view, setView] = useState<View>('roster');
   const [focusTab, setFocusTab] = useState<FocusTab>('pomodoro');
   const [studentTab, setStudentTab] = useState<StudentTab>('looking-ahead');
@@ -1820,6 +1843,52 @@ export default function Page() {
   }
 
   // ── Roster ───────────────────────────────────────────────────────────────────
+
+  // ── Coach PIN gate ───────────────────────────────────────────────────────────
+  if (view === 'roster' && !coachUnlocked) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#fff', fontFamily: 'var(--font-space-grotesk), sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'none', position: 'relative' }}>
+        <div aria-hidden style={{ position: 'fixed', left: cursor.pos.x, top: cursor.pos.y, width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: '50%', backgroundColor: '#000', pointerEvents: 'none', zIndex: 9999 }} />
+        {Curtain}
+        <div style={{ width: '100%', maxWidth: 360, padding: '0 24px' }}>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.3, marginBottom: 32 }}>EF Dashboard</p>
+          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 300, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 48 }}>Coach access</h1>
+          <form onSubmit={submitPin}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={8}
+                autoFocus
+                value={pinInput}
+                onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+                placeholder="Enter PIN"
+                style={{
+                  width: '100%', border: 'none', borderBottom: `2px solid ${pinError ? '#c00' : '#000'}`,
+                  padding: '12px 0', fontSize: '1.5rem', letterSpacing: '0.3em',
+                  background: 'transparent', outline: 'none', color: '#000',
+                  fontFamily: 'inherit', textAlign: 'center',
+                }}
+              />
+              {pinError && <p style={{ fontSize: '0.75rem', color: '#c00', textAlign: 'center' }}>Incorrect PIN</p>}
+              <button type="submit"
+                style={{ width: '100%', padding: '12px 0', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'none' }}>
+                Enter
+              </button>
+            </div>
+          </form>
+          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => navigate(() => setView('student-login'))}
+              style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}>
+              Student login →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'roster') {
     function openStudentDirect(id: string) {
