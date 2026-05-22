@@ -1212,12 +1212,12 @@ function ThemeCustomizer({ theme, onSave }: { theme: StudentTheme; onSave: (t: S
 
 type View = 'roster' | 'student' | 'assessment' | 'personality' | 'student-login';
 type FocusTab = 'pomodoro' | 'chunking';
-type StudentTab = 'overview' | 'growth' | 'drills' | 'space';
+type StudentTab = 'looking-back' | 'looking-ahead' | 'growth' | 'drills' | 'space';
 
 export default function Page() {
   const [view, setView] = useState<View>('roster');
   const [focusTab, setFocusTab] = useState<FocusTab>('pomodoro');
-  const [studentTab, setStudentTab] = useState<StudentTab>('overview');
+  const [studentTab, setStudentTab] = useState<StudentTab>('looking-ahead');
   const [tabVisible, setTabVisible] = useState(true);
   const [students, setStudents] = useState<Student[]>(SEED_STUDENTS);
   const [sessions, setSessions] = useState<Session[]>(SEED_SESSIONS);
@@ -1273,7 +1273,7 @@ export default function Page() {
           setStudentMode(true);
           setSelectedStudentId(matched.id);
           setPrivacyAccepted(true);
-          navigate(() => { setView('student'); setStudentTab('overview'); setTabVisible(true); });
+          navigate(() => { setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); });
         }
       } else {
         // Signed out
@@ -1592,7 +1592,7 @@ export default function Page() {
                   if (!privacyAccepted) { setShowPrivacy(true); return; }
                   setStudentMode(true);
                   setSelectedStudentId(student.id);
-                  navigate(() => { setView('student'); setStudentTab('overview'); setTabVisible(true); });
+                  navigate(() => { setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); });
                 }}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '20px 0', backgroundColor: 'transparent', border: 'none', borderTop: '1px solid #000', cursor: 'none', textAlign: 'left' }}>
                 <span style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 400, letterSpacing: '-0.025em' }}>{student.name}</span>
@@ -1631,11 +1631,11 @@ export default function Page() {
 
   if (view === 'roster') {
     function openStudentDirect(id: string) {
-      setSelectedStudentId(id); setView('student'); setStudentTab('overview');
+      setSelectedStudentId(id); setView('student'); setStudentTab('looking-ahead');
       setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false);
       setOverlayExiting(false);
     }
-    function openStudent(id: string)   { navigate(() => { setSelectedStudentId(id); setView('student');     setStudentTab('overview'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }); }
+    function openStudent(id: string)   { navigate(() => { setSelectedStudentId(id); setView('student');     setStudentTab('looking-ahead'); setTabVisible(true); setFocusedRosterId(null); setRosterHovered(false); }); }
     function goAssessment(id: string)  { navigate(() => { setSelectedStudentId(id); setView('assessment');   setFocusedRosterId(null); setRosterHovered(false); }); }
     function goPersonality(id: string) { navigate(() => { setSelectedStudentId(id); setView('personality');  setFocusedRosterId(null); setRosterHovered(false); }); }
 
@@ -2056,7 +2056,7 @@ export default function Page() {
               {students.filter(s => s.id !== student.id).slice(0, 4).map(s => (
                 <button
                   key={s.id}
-                  onClick={() => navigate(() => { setSelectedStudentId(s.id); setView('student'); setStudentTab('overview'); setTabVisible(true); })}
+                  onClick={() => navigate(() => { setSelectedStudentId(s.id); setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); })}
                   className="w-7 h-7 flex items-center justify-center font-bold transition-opacity hover:opacity-80"
                   style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11 }}>
                   {s.name[0]}
@@ -2068,10 +2068,11 @@ export default function Page() {
           {/* Tab bar */}
           <div className="flex px-6" style={{ borderTop: '1px solid #222' }}>
             {([
-              ['overview', 'Overview'],
-              ['growth',   'Growth'],
-              ['drills',   'Drills'],
-              ['space',    'Space'],
+              ['looking-back',  'Looking Back'],
+              ['looking-ahead', 'Looking Ahead'],
+              ['growth',        'Growth'],
+              ['drills',        'Drills'],
+              ['space',         'Space'],
             ] as [StudentTab, string][]).map(([key, label]) => (
               <button key={key} onClick={() => switchStudentTab(key)}
                 className="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
@@ -2088,7 +2089,7 @@ export default function Page() {
         <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: designTheme.main.bg }}>
           <div style={{ opacity: tabVisible ? 1 : 0, transition: 'opacity 150ms ease' }}>
 
-            {studentTab === 'overview' && (
+            {studentTab === 'looking-back' && (
               <div className="space-y-4">
                 {/* EF Skill bars */}
                 {latestSession ? (
@@ -2164,6 +2165,11 @@ export default function Page() {
                   )}
                 </div>
 
+              </div>
+            )}
+
+            {studentTab === 'looking-ahead' && (
+              <div className="space-y-4">
                 {/* This week ahead */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
