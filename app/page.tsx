@@ -283,11 +283,10 @@ function useCursor() {
 // RosterTile — Goodman Gallery–style full-width typographic row
 // ─────────────────────────────────────────────────────────────────────────────
 function RosterTile({
-  student, onClick, pixelMode = false,
+  student, onClick,
 }: {
   student: Student;
   onClick: () => void;
-  pixelMode?: boolean;
 }) {
   const [hoverCount, setHoverCount] = React.useState(0);
   const [isHovered, setIsHovered] = React.useState(false);
@@ -298,40 +297,27 @@ function RosterTile({
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         width: '100%',
-        padding: pixelMode ? '16px 0' : '22px 0',
+        padding: '22px 0',
         backgroundColor: '#ffffff',
         border: 'none',
         borderTop: '1px solid #000000',
         cursor: 'none',
         textAlign: 'left',
-        gap: 16,
       }}
       onMouseEnter={() => { setIsHovered(true); setHoverCount(c => c + 1); }}
       onMouseLeave={() => setIsHovered(false)}>
-      {/* Pixel avatar — shown in pixel mode */}
-      {pixelMode && (
-        <div style={{ flexShrink: 0, opacity: isHovered ? 0.5 : 1, transition: 'opacity 200ms ease' }}>
-          <PixelAvatar name={student.name} size={32} color="#000" bounce={isHovered} />
-        </div>
-      )}
       {/* Name */}
       <span style={{
-        fontSize: pixelMode ? 'clamp(1rem, 2vw, 1.4rem)' : 'clamp(1.6rem, 3vw, 2.4rem)',
-        fontWeight: pixelMode ? 700 : 400,
+        fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
+        fontWeight: 400,
         lineHeight: 1,
-        letterSpacing: pixelMode ? '0.02em' : '-0.025em',
+        letterSpacing: '-0.025em',
         color: '#000000',
         opacity: isHovered ? 0.4 : 1,
         transition: 'opacity 200ms ease',
         display: 'block',
-        flex: 1,
       }}>
         <AnimatedText text={student.name} animKey={hoverCount} stagger={18} />
-        {pixelMode && (
-          <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.4, marginLeft: 10 }}>
-            {CRITTER_NAMES[getCritterIndex(student.name)]}
-          </span>
-        )}
       </span>
       {/* Grade — right side */}
       {student.grade && (
@@ -350,6 +336,47 @@ function RosterTile({
         </span>
       )}
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MarginBugs — tiny pixel critters crawling on the left/right page edges
+// ─────────────────────────────────────────────────────────────────────────────
+function MarginBugs({ names, color = '#000', opacity = 0.28 }: { names: string[]; color?: string; opacity?: number }) {
+  const left  = names.filter((_, i) => i % 2 === 0);
+  const right = names.filter((_, i) => i % 2 === 1);
+
+  function top(name: string, i: number, total: number): string {
+    const spread = 20 + (i / Math.max(total - 1, 1)) * 55;
+    const jitter = (name.charCodeAt(0) % 9) - 4;
+    return `${spread + jitter}%`;
+  }
+
+  function delay(i: number) { return `${((i * 0.37) % 1.4).toFixed(2)}s`; }
+
+  return (
+    <>
+      {left.map((name, i) => (
+        <div key={`l-${name}`} style={{
+          position: 'fixed', left: 10, top: top(name, i, left.length),
+          pointerEvents: 'none', zIndex: 5, opacity,
+          animation: `pixelBounce ${1.4 + (i % 3) * 0.4}s ease-in-out infinite`,
+          animationDelay: delay(i),
+        }}>
+          <PixelAvatar name={name} size={13} color={color} bounce={false} />
+        </div>
+      ))}
+      {right.map((name, i) => (
+        <div key={`r-${name}`} style={{
+          position: 'fixed', right: 10, top: top(name, i, right.length),
+          pointerEvents: 'none', zIndex: 5, opacity,
+          animation: `pixelBounce ${1.4 + (i % 3) * 0.4}s ease-in-out infinite`,
+          animationDelay: delay(i + left.length),
+        }}>
+          <PixelAvatar name={name} size={13} color={color} bounce={false} />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -1801,6 +1828,9 @@ export default function Page() {
     return (
       <><EditorialShell theme={designTheme} className="min-h-screen" style={{ position: 'relative', cursor: 'none' }}>
 
+        {/* ── Margin bugs ── */}
+        {pixelMode && <MarginBugs names={students.map(s => s.name)} color={designTheme.main.heading} />}
+
         {/* ── Custom cursor ── */}
         <div
           aria-hidden
@@ -2043,7 +2073,6 @@ export default function Page() {
               <RosterTile
                 key={student.id}
                 student={student}
-                pixelMode={pixelMode}
                 onClick={() => { setFocusedRosterId(student.id); setRosterHovered(false); }}
               />
             ))}
@@ -2118,51 +2147,8 @@ export default function Page() {
             )}
           </div>
 
-          {/* Bottom row: pixel toggle + student login */}
-          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 60 }}>
-            {/* Pixel mode toggle */}
-            <button
-              onClick={() => setPixelMode(p => !p)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                background: 'none', border: 'none', cursor: 'none', padding: 0,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-              {/* Toggle pill */}
-              <div style={{
-                width: 36, height: 20, borderRadius: 2,
-                backgroundColor: pixelMode ? '#000' : 'transparent',
-                border: '1.5px solid rgba(0,0,0,0.25)',
-                position: 'relative',
-                transition: 'background-color 200ms ease',
-                flexShrink: 0,
-              }}>
-                <div style={{
-                  position: 'absolute', top: 2,
-                  left: pixelMode ? 18 : 2,
-                  width: 12, height: 12,
-                  backgroundColor: pixelMode ? '#fff' : 'rgba(0,0,0,0.3)',
-                  borderRadius: 1,
-                  transition: 'left 200ms ease, background-color 200ms ease',
-                  imageRendering: 'pixelated',
-                }} />
-              </div>
-              {/* Mini critter preview when off, bouncing when on */}
-              {pixelMode
-                ? <PixelAvatar name={students[0]?.name ?? 'A'} size={20} color="#000" bounce />
-                : null}
-              <span style={{
-                fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em',
-                textTransform: 'uppercase', color: '#000',
-                opacity: pixelMode ? 0.8 : 0.3,
-                transition: 'opacity 200ms ease',
-              }}>
-                {pixelMode ? 'Pixel mode on' : 'Pixel mode'}
-              </span>
-            </button>
-
-            {/* Student login */}
+          {/* Student login link */}
+          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 60 }}>
             <button onClick={() => { setFocusedRosterId(null); setRosterHovered(false); navigate(() => setView('student-login')); }}
               style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
               onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
@@ -2267,6 +2253,9 @@ export default function Page() {
     return (
       <><EditorialShell theme={designTheme} className="h-screen flex flex-col overflow-hidden" style={{ background: designTheme.main.bg }}>
         {PrivacyOverlay}
+
+        {/* ── Margin bugs ── */}
+        {pixelMode && <MarginBugs names={students.map(st => st.name)} color={s.primary} opacity={0.22} />}
 
         {/* ── Top header ── */}
         <header style={{ backgroundColor: '#000', borderBottom: '1px solid #222', flexShrink: 0 }}>
