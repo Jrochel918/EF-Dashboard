@@ -1552,7 +1552,7 @@ export default function Page() {
             <p style={{ marginBottom: 12 }}><strong>Who can see it</strong> — Only you and your coach. Data lives in this browser session and is never sent to any third party.</p>
             <p><strong>Your rights</strong> — Ask your coach to remove your data any time.</p>
           </div>
-          <button onClick={() => { setPrivacyAccepted(true); setShowPrivacy(false); }}
+          <button onClick={() => { setPrivacyAccepted(true); setShowPrivacy(false); handleGoogleSignIn(); }}
             style={{ marginTop: 32, width: '100%', backgroundColor: '#000', color: '#fff', border: 'none', padding: '12px 0', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
             I understand — continue
           </button>
