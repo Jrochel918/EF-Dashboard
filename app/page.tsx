@@ -1546,7 +1546,7 @@ export default function Page() {
   // ── Student login ────────────────────────────────────────────────────────────
 
   if (view === 'student-login') {
-    const PrivacyModal = () => (
+    const privacyModal = showPrivacy ? (
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ backgroundColor: '#fff', maxWidth: 480, width: '90%', padding: '48px 40px', position: 'relative' }}>
           <button onClick={() => setShowPrivacy(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4 }}><X size={16} /></button>
@@ -1559,20 +1559,20 @@ export default function Page() {
             <p style={{ marginBottom: 12 }}><strong>Who can see it</strong> — Only you and your coach. Data lives in this browser session and is never sent to any third party.</p>
             <p><strong>Your rights</strong> — Ask your coach to remove your data any time.</p>
           </div>
-          <button onClick={() => { setPrivacyAccepted(true); setShowPrivacy(false); handleGoogleSignIn(); }}
+          <button onClick={() => { setPrivacyAccepted(true); setShowPrivacy(false); }}
             style={{ marginTop: 32, width: '100%', backgroundColor: '#000', color: '#fff', border: 'none', padding: '12px 0', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
             I understand — continue
           </button>
         </div>
       </div>
-    );
+    ) : null;
 
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#fff', fontFamily: 'var(--font-space-grotesk), sans-serif', cursor: 'none', position: 'relative' }}>
         {/* Custom cursor */}
         <div aria-hidden style={{ position: 'fixed', left: cursor.pos.x, top: cursor.pos.y, width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: '50%', backgroundColor: '#000', pointerEvents: 'none', zIndex: 9999 }} />
 
-        {showPrivacy && <PrivacyModal />}
+        {privacyModal}
         {Curtain}
 
         <div style={{ maxWidth: 440, margin: '0 auto', padding: '80px 24px' }}>
