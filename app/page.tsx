@@ -1448,6 +1448,10 @@ export default function Page() {
   const [newObText, setNewObText] = useState('');
   const [newObDate, setNewObDate] = useState('');
   const [newObTime, setNewObTime] = useState('');
+  const [editingObId, setEditingObId] = useState<string | null>(null);
+  const [editObText, setEditObText] = useState('');
+  const [editObDate, setEditObDate] = useState('');
+  const [editObTime, setEditObTime] = useState('');
 
   const selectedStudent = students.find(s => s.id === selectedStudentId) ?? null;
   const thisWeek = weekStartISO(0);
@@ -1955,6 +1959,26 @@ export default function Page() {
       setNewObText(''); setNewObDate(''); setNewObTime('');
     }
 
+    function startEditOb(ob: Obligation) {
+      setEditingObId(ob.id);
+      setEditObText(ob.text);
+      setEditObDate(ob.plannedDate);
+      setEditObTime(ob.plannedTime);
+    }
+
+    function saveObEdit() {
+      if (!editObText.trim()) return;
+      setObligations(prev => prev.map(o => o.id === editingObId
+        ? { ...o, text: editObText.trim(), plannedDate: editObDate, plannedTime: editObTime }
+        : o
+      ));
+      setEditingObId(null);
+    }
+
+    function deleteOb(id: string) {
+      setObligations(prev => prev.filter(o => o.id !== id));
+    }
+
     function toggleOb(id: string) {
       setObligations(prev => prev.map(o => o.id === id ? { ...o, completed: !o.completed } : o));
     }
@@ -2047,13 +2071,15 @@ export default function Page() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => navigate(() => setView('personality'))}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
-                style={{ borderColor: 'rgba(255,255,255,0.25)', color: '#fff' }}>
-                <Smile size={12} /> Personalise
-              </button>
-              {/* Student switcher */}
-              {students.filter(s => s.id !== student.id).slice(0, 4).map(s => (
+              {!studentMode && (
+                <button onClick={() => navigate(() => setView('personality'))}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
+                  style={{ borderColor: 'rgba(255,255,255,0.25)', color: '#fff' }}>
+                  <Smile size={12} /> Personalise
+                </button>
+              )}
+              {/* Student switcher — teacher only */}
+              {!studentMode && students.filter(s => s.id !== student.id).slice(0, 4).map(s => (
                 <button
                   key={s.id}
                   onClick={() => navigate(() => { setSelectedStudentId(s.id); setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); })}
@@ -2198,38 +2224,68 @@ export default function Page() {
 
                   {/* Existing items */}
                   {thisWeekObs.length > 0 && (
-                    <div className="space-y-1.5 mb-4">
+                    <div className="space-y-2 mb-4">
                       {thisWeekObs.map(ob => (
-                        <div key={ob.id} className="flex items-start gap-2 group">
-                          <div onClick={() => toggleOb(ob.id)} className="flex items-start gap-2 flex-1 cursor-pointer min-w-0">
-                            {ob.completed ? <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0 mt-0.5" /> : <Circle size={15} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 mt-0.5 transition-colors" />}
-                            <div className="min-w-0">
-                              <p className={`text-sm leading-tight ${ob.completed ? 'line-through text-stone-400' : ''}`} style={{ color: ob.completed ? undefined : designTheme.main.body }}>{ob.text}</p>
-                              {(ob.plannedDate || ob.plannedTime) && (
-                                <p className="text-[11px] mt-0.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>
-                                  {ob.plannedDate && fmtDate(ob.plannedDate)}{ob.plannedDate && ob.plannedTime ? ' · ' : ''}{ob.plannedTime}
-                                </p>
-                              )}
+                        <div key={ob.id}>
+                          {editingObId === ob.id ? (
+                            /* ── Inline edit form ── */
+                            <div style={{ border: '1px solid #000', padding: 10 }}>
+                              <input
+                                className="w-full outline-none text-sm mb-2"
+                                style={{ borderBottom: '1px solid #ddd', paddingBottom: 4, backgroundColor: 'transparent', color: designTheme.main.body }}
+                                value={editObText} onChange={e => setEditObText(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && saveObEdit()} autoFocus />
+                              <input type="datetime-local" className="text-xs outline-none mb-2 block"
+                                style={{ color: designTheme.main.body, backgroundColor: 'transparent' }}
+                                value={editObDate && editObTime ? `${editObDate}T${editObTime}` : editObDate ? `${editObDate}T00:00` : ''}
+                                onChange={e => {
+                                  const [d, t] = e.target.value.split('T');
+                                  setEditObDate(d ?? ''); setEditObTime(t ?? '');
+                                }} />
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={saveObEdit} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', backgroundColor: '#000', color: '#fff', border: 'none', padding: '5px 12px', cursor: 'pointer' }}>Save</button>
+                                <button onClick={() => setEditingObId(null)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#000', border: '1px solid #ccc', padding: '5px 12px', cursor: 'pointer' }}>Cancel</button>
+                                <button onClick={() => deleteOb(ob.id)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#c00', border: 'none', padding: '5px 0', cursor: 'pointer', marginLeft: 'auto' }}>Delete</button>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            /* ── Display row ── */
+                            <div className="flex items-start gap-2 group">
+                              <div onClick={() => toggleOb(ob.id)} className="flex items-start gap-2 flex-1 cursor-pointer min-w-0">
+                                {ob.completed ? <CheckCircle2 size={15} className="text-emerald-500 flex-shrink-0 mt-0.5" /> : <Circle size={15} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 mt-0.5 transition-colors" />}
+                                <div className="min-w-0">
+                                  <p className={`text-sm leading-tight ${ob.completed ? 'line-through text-stone-400' : ''}`} style={{ color: ob.completed ? undefined : designTheme.main.body }}>{ob.text}</p>
+                                  {(ob.plannedDate || ob.plannedTime) && (
+                                    <p className="text-[11px] mt-0.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>
+                                      {ob.plannedDate && fmtDate(ob.plannedDate)}{ob.plannedDate && ob.plannedTime ? ' · ' : ''}{ob.plannedTime}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <button onClick={() => startEditOb(ob)} className="opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity flex-shrink-0 mt-0.5" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                <Pencil size={13} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Add item form — all in one row, button spans full width below */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 110px', gap: 8, marginBottom: 8 }}>
+                  {/* Add item form */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
                     <input className="border px-2.5 py-1.5 text-xs outline-none"
                       style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
                       placeholder="Add assignment or task…"
                       value={newObText} onChange={e => setNewObText(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && addObligation()} />
-                    <input type="date" className="border px-2 py-1.5 text-xs outline-none"
+                    <input type="datetime-local" className="border px-2 py-1.5 text-xs outline-none"
                       style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                      value={newObDate} onChange={e => setNewObDate(e.target.value)} />
-                    <input type="time" className="border px-2 py-1.5 text-xs outline-none"
-                      style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                      value={newObTime} onChange={e => setNewObTime(e.target.value)} />
+                      value={newObDate && newObTime ? `${newObDate}T${newObTime}` : newObDate ? `${newObDate}T00:00` : ''}
+                      onChange={e => {
+                        const [d, t] = e.target.value.split('T');
+                        setNewObDate(d ?? ''); setNewObTime(t ?? '');
+                      }} />
                   </div>
                   <button
                     onClick={addObligation}
