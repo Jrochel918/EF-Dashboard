@@ -1284,14 +1284,18 @@ export default function Page() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         scopes: 'https://www.googleapis.com/auth/calendar.events',
       },
     });
+    if (error) setAuthError(error.message);
   };
 
   const handleSignOut = async () => {
@@ -1599,6 +1603,11 @@ export default function Page() {
               <p style={{ marginTop: 10, fontSize: '0.65rem', color: '#000', opacity: 0.35, textAlign: 'center' }}>
                 Your Google account identifies you. No password needed.
               </p>
+              {authError && (
+                <p style={{ marginTop: 10, fontSize: '0.7rem', color: '#c00', textAlign: 'center' }}>
+                  {authError}
+                </p>
+              )}
             </div>
           )}
 
