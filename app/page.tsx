@@ -1360,21 +1360,38 @@ type View = 'roster' | 'student' | 'assessment' | 'personality' | 'student-login
 type FocusTab = 'pomodoro' | 'chunking';
 type StudentTab = 'looking-back' | 'looking-ahead' | 'growth' | 'drills' | 'space';
 
+// ── localStorage hook ──────────────────────────────────────────────────────────
+function useLocalStorage<T>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === 'undefined') return initial;
+    try {
+      const stored = localStorage.getItem(key);
+      return stored !== null ? (JSON.parse(stored) as T) : initial;
+    } catch { return initial; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota exceeded */ }
+  }, [key, value]);
+  return [value, setValue];
+}
+
 export default function Page() {
   const [view, setView] = useState<View>('roster');
   const [focusTab, setFocusTab] = useState<FocusTab>('pomodoro');
   const [studentTab, setStudentTab] = useState<StudentTab>('looking-ahead');
   const [tabVisible, setTabVisible] = useState(true);
-  const [students, setStudents] = useState<Student[]>(SEED_STUDENTS);
-  const [sessions, setSessions] = useState<Session[]>(SEED_SESSIONS);
-  const [habits, setHabits] = useState<Habit[]>(SEED_HABITS);
-  const [weekEntries, setWeekEntries] = useState<WeekEntry[]>(SEED_WEEK_ENTRIES);
-  const [obligations, setObligations] = useState<Obligation[]>(SEED_OBLIGATIONS);
-  const [chunkProjects, setChunkProjects] = useState<ChunkProject[]>([]);
-  const [widgetChoices, setWidgetChoices] = useState<Record<string, WidgetType>>({});
-  const [widgetData, setWidgetData] = useState<Record<string, Record<string, unknown>>>({});
-  const [studentThemes, setStudentThemes] = useState<Record<string, StudentTheme>>({});
-  const [designTheme, setDesignTheme] = useState<DesignTheme>(DESIGN_THEMES[0]);
+  const [students, setStudents] = useLocalStorage<Student[]>('ef-students', SEED_STUDENTS);
+  const [sessions, setSessions] = useLocalStorage<Session[]>('ef-sessions', SEED_SESSIONS);
+  const [habits, setHabits] = useLocalStorage<Habit[]>('ef-habits', SEED_HABITS);
+  const [weekEntries, setWeekEntries] = useLocalStorage<WeekEntry[]>('ef-week-entries', SEED_WEEK_ENTRIES);
+  const [obligations, setObligations] = useLocalStorage<Obligation[]>('ef-obligations', SEED_OBLIGATIONS);
+  const [chunkProjects, setChunkProjects] = useLocalStorage<ChunkProject[]>('ef-chunk-projects', []);
+  const [widgetChoices, setWidgetChoices] = useLocalStorage<Record<string, WidgetType>>('ef-widget-choices', {});
+  const [widgetData, setWidgetData] = useLocalStorage<Record<string, Record<string, unknown>>>('ef-widget-data', {});
+  const [studentThemes, setStudentThemes] = useLocalStorage<Record<string, StudentTheme>>('ef-student-themes', {});
+  const [designThemeId, setDesignThemeId] = useLocalStorage<string>('ef-design-theme', DESIGN_THEMES[0].id);
+  const designTheme = DESIGN_THEMES.find(t => t.id === designThemeId) ?? DESIGN_THEMES[0];
+  const setDesignTheme = (t: DesignTheme) => setDesignThemeId(t.id);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [focusedRosterId, setFocusedRosterId] = useState<string | null>(null);
   const [rosterHovered, setRosterHovered] = useState(false);
@@ -1600,7 +1617,7 @@ export default function Page() {
   const [editObTime, setEditObTime] = useState('');
 
   // ── Pixel mode — global roster toggle ────────────────────────────────────────
-  const [pixelMode, setPixelMode] = useState(false);
+  const [pixelMode, setPixelMode] = useLocalStorage<boolean>('ef-pixel-mode', false);
 
   // ── Global Escape key: close any open overlay / panel ───────────────────────
   useEffect(() => {
