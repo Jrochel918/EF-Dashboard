@@ -42,7 +42,7 @@ type WidgetType = 'mood' | 'braindump' | 'gratitude' | 'personal-goal' | null;
 type ChunkStep = { id: string; text: string; done: boolean };
 type ChunkProject = { id: string; studentId: string; name: string; dueDate: string; steps: ChunkStep[] };
 type MoodEntry = { date: string; level: number; note: string };
-type ThemePreset = 'minimal' | 'bold' | 'cozy' | 'dark' | 'creative' | 'structured';
+type ThemePreset = 'minimal' | 'bold' | 'cozy' | 'dark' | 'creative' | 'structured' | 'pixel';
 type ThemeLayout = 'sidebar' | 'header';
 type StudentTheme = {
   preset: ThemePreset;
@@ -69,7 +69,106 @@ const PRESET_CONFIGS: Record<ThemePreset, {
   dark:       { label: 'Dark',       desc: 'Sleek & modern',       swatch: '#0f172a', cardRadius: '16px',  buttonRadius: '12px', avatarRadius: '16px', shadow: '0 4px 24px rgba(0,0,0,0.5)',        tabStyle: 'pill',      sidebarAccent: true,  defaultLayout: 'sidebar' },
   creative:   { label: 'Creative',   desc: 'Bold & expressive',    swatch: '#fdf4ff', cardRadius: '20px',  buttonRadius: '20px', avatarRadius: '50%',  shadow: '0 4px 16px rgba(0,0,0,0.10)',       tabStyle: 'pill',      sidebarAccent: true,  defaultLayout: 'header'  },
   structured: { label: 'Structured', desc: 'Organized & clear',    swatch: '#f8fafc', cardRadius: '6px',   buttonRadius: '4px',  avatarRadius: '8px',  shadow: '0 1px 4px rgba(0,0,0,0.08)',        tabStyle: 'underline', sidebarAccent: false, defaultLayout: 'sidebar' },
+  pixel:      { label: 'Pixel',      desc: 'Playful & alive',      swatch: '#fde68a', cardRadius: '4px',   buttonRadius: '2px',  avatarRadius: '0px',  shadow: '3px 3px 0 rgba(0,0,0,0.18)',        tabStyle: 'pill',      sidebarAccent: true,  defaultLayout: 'sidebar' },
 };
+
+// ── Pixel critters ─────────────────────────────────────────────────────────────
+// Each row is 12 chars wide ('1' = filled pixel, '0' = empty). Rendered 2×2px per cell.
+const CRITTER_PIXELS: string[][] = [
+  // 0: PUDGE — chubby owl face, front-on
+  ['000111111000','011111111110','111111111111',
+   '110011001100','110011001100','111111111111',
+   '110000000011','111111111111','011111111110',
+   '000111111000','000110011000','000110011000'],
+  // 1: DASH — bird running to the right
+  ['000011110000','000111111100','001111111111',
+   '011111111000','011111111000','001111110000',
+   '000110000000','000110000000','001111000000'],
+  // 2: SPOOK — ghost with jagged base
+  ['001111111100','011111111110','111111111111',
+   '110011001111','110100010011','111111111111',
+   '011111111110','011101011110','010101010110'],
+  // 3: CLANK — blocky robot head + body
+  ['001111111100','011111111110','111111111111',
+   '111011011111','111111111111','001111111100',
+   '001111111100','001100110000','001100110000','001100110000'],
+  // 4: BIRB — small round bird
+  ['000001110000','000011111000','000011111000',
+   '000011111000','001111111110','001111111110',
+   '000111111100','000011110000','000001100000','000011100000'],
+  // 5: WADDLE — penguin waddling
+  ['000111111000','001111111100','011111111110',
+   '011000000110','011111111110','001111111100',
+   '011111111110','011111111110','001111111100',
+   '000011100000','000001000000'],
+  // 6: SNUG — hedgehog/bear, spiky top
+  ['000111111000','010111111010','111111111111',
+   '110111111011','110111111011','111111111111',
+   '011111111110','001111111100','000110011000','000110011000'],
+  // 7: SHROOM — mushroom creature
+  ['000111111000','001111111100','011111111110',
+   '111111111111','011111111110','001111111100',
+   '000111111000','000111111000','000111111000',
+   '000110011000','001111111100'],
+  // 8: BOPPA — round with antenna
+  ['000001000000','000011100000','000111111000',
+   '011111111110','111111111111','110011001100',
+   '110011001100','111111111111','110000000011',
+   '111111111111','011111111110','000110011000'],
+  // 9: ZIPPY — fast critter with speed lines
+  ['111100011110','111100011110','000000011110',
+   '000001111110','000111111110','001111111100',
+   '011111111000','111111100000','111111100000',
+   '111100000000'],
+  // 10: BUBS — round with big eyes
+  ['001111111100','011111111110','111111111111',
+   '100110011001','100110011001','111111111111',
+   '111111111111','110001100011','011111111110',
+   '001111111100','000011000000','000100100000'],
+  // 11: FRIZZ — spiked energy ball
+  ['010001000100','001111111000','011111111110',
+   '111111111111','111111111111','011111111110',
+   '011111111110','111111111111','001111111100',
+   '000111111000','010001000100'],
+];
+
+const CRITTER_NAMES = ['Pudge','Dash','Spook','Clank','Birb','Waddle','Snug','Shroom','Boppa','Zippy','Bubs','Frizz'];
+
+function critterSVG(rows: string[]): string {
+  const rects: string[] = [];
+  rows.forEach((row, y) => {
+    let startX = -1;
+    for (let x = 0; x <= 12; x++) {
+      const filled = x < 12 && row[x] === '1';
+      if (filled && startX === -1) { startX = x; }
+      else if (!filled && startX !== -1) {
+        rects.push(`<rect x="${startX * 2}" y="${y * 2}" width="${(x - startX) * 2}" height="2"/>`);
+        startX = -1;
+      }
+    }
+  });
+  return rects.join('');
+}
+
+function getCritterIndex(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return hash % CRITTER_PIXELS.length;
+}
+
+function PixelAvatar({ name, size = 40, color = '#000', bounce = true }: { name: string; size?: number; color?: string; bounce?: boolean }) {
+  const idx = getCritterIndex(name);
+  const rows = CRITTER_PIXELS[idx];
+  const viewH = rows.length * 2;
+  return (
+    <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      animation: bounce ? 'pixelBounce 2s ease-in-out infinite' : 'none' }}>
+      <svg viewBox={`0 0 24 ${viewH}`} width={size} height={size} fill={color}
+        style={{ imageRendering: 'pixelated', display: 'block' }}
+        dangerouslySetInnerHTML={{ __html: critterSVG(rows) }} />
+    </div>
+  );
+}
 
 function getThemeStyles(theme: StudentTheme | null, avatarFg: string, avatarBg: string) {
   const p = theme ? (PRESET_CONFIGS[theme.preset] ?? PRESET_CONFIGS.minimal) : PRESET_CONFIGS.minimal;
@@ -184,10 +283,11 @@ function useCursor() {
 // RosterTile — Goodman Gallery–style full-width typographic row
 // ─────────────────────────────────────────────────────────────────────────────
 function RosterTile({
-  student, onClick,
+  student, onClick, pixelMode = false,
 }: {
   student: Student;
   onClick: () => void;
+  pixelMode?: boolean;
 }) {
   const [hoverCount, setHoverCount] = React.useState(0);
   const [isHovered, setIsHovered] = React.useState(false);
@@ -198,27 +298,40 @@ function RosterTile({
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         width: '100%',
-        padding: '22px 0',
+        padding: pixelMode ? '16px 0' : '22px 0',
         backgroundColor: '#ffffff',
         border: 'none',
         borderTop: '1px solid #000000',
         cursor: 'none',
         textAlign: 'left',
+        gap: 16,
       }}
       onMouseEnter={() => { setIsHovered(true); setHoverCount(c => c + 1); }}
       onMouseLeave={() => setIsHovered(false)}>
+      {/* Pixel avatar — shown in pixel mode */}
+      {pixelMode && (
+        <div style={{ flexShrink: 0, opacity: isHovered ? 0.5 : 1, transition: 'opacity 200ms ease' }}>
+          <PixelAvatar name={student.name} size={32} color="#000" bounce={isHovered} />
+        </div>
+      )}
       {/* Name */}
       <span style={{
-        fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-        fontWeight: 400,
+        fontSize: pixelMode ? 'clamp(1rem, 2vw, 1.4rem)' : 'clamp(1.6rem, 3vw, 2.4rem)',
+        fontWeight: pixelMode ? 700 : 400,
         lineHeight: 1,
-        letterSpacing: '-0.025em',
+        letterSpacing: pixelMode ? '0.02em' : '-0.025em',
         color: '#000000',
         opacity: isHovered ? 0.4 : 1,
         transition: 'opacity 200ms ease',
         display: 'block',
+        flex: 1,
       }}>
         <AnimatedText text={student.name} animKey={hoverCount} stagger={18} />
+        {pixelMode && (
+          <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.4, marginLeft: 10 }}>
+            {CRITTER_NAMES[getCritterIndex(student.name)]}
+          </span>
+        )}
       </span>
       {/* Grade — right side */}
       {student.grade && (
@@ -1080,7 +1193,7 @@ function PersonalityQuestionnaire({ student, onComplete, onBack }: {
 
 // ── Theme Customizer ───────────────────────────────────────────────────────────
 
-function ThemeCustomizer({ theme, onSave }: { theme: StudentTheme; onSave: (t: StudentTheme) => void }) {
+function ThemeCustomizer({ theme, onSave, studentName = '' }: { theme: StudentTheme; onSave: (t: StudentTheme) => void; studentName?: string }) {
   const [draft, setDraft] = useState<StudentTheme>(theme);
   const [saved, setSaved] = useState(false);
 
@@ -1137,8 +1250,14 @@ function ThemeCustomizer({ theme, onSave }: { theme: StudentTheme; onSave: (t: S
               style={{ borderColor: active ? draft.primaryColor : 'transparent', backgroundColor: active ? `${draft.primaryColor}10` : '#f5f5f4' }}>
               <div className="w-full h-8 rounded-lg border border-stone-200 flex items-center justify-center gap-1 overflow-hidden"
                 style={{ backgroundColor: cfg.swatch }}>
-                <div className="w-3 h-3 bg-stone-400 opacity-50" style={{ borderRadius: cfg.cardRadius }} />
-                <div className="w-5 h-2 bg-stone-400 opacity-30" style={{ borderRadius: cfg.cardRadius }} />
+                {key === 'pixel' ? (
+                  <PixelAvatar name={studentName || 'Student'} size={24} color="#374151" bounce={false} />
+                ) : (
+                  <>
+                    <div className="w-3 h-3 bg-stone-400 opacity-50" style={{ borderRadius: cfg.cardRadius }} />
+                    <div className="w-5 h-2 bg-stone-400 opacity-30" style={{ borderRadius: cfg.cardRadius }} />
+                  </>
+                )}
               </div>
               <span className="text-[11px] font-semibold" style={{ color: active ? draft.primaryColor : '#78716c' }}>{cfg.label}</span>
             </button>
@@ -1453,6 +1572,23 @@ export default function Page() {
   const [editObDate, setEditObDate] = useState('');
   const [editObTime, setEditObTime] = useState('');
 
+  // ── Pixel mode — global roster toggle ────────────────────────────────────────
+  const [pixelMode, setPixelMode] = useState(false);
+
+  // ── Global Escape key: close any open overlay / panel ───────────────────────
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      // Priority: innermost / most specific first
+      if (editingObId)    { setEditingObId(null); return; }
+      if (showPrivacy)    { setShowPrivacy(false); return; }
+      if (showAddStudent) { setShowAddStudent(false); return; }
+      if (focusedRosterId) { setFocusedRosterId(null); setRosterHovered(false); return; }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editingObId, showPrivacy, showAddStudent, focusedRosterId]);
+
   const selectedStudent = students.find(s => s.id === selectedStudentId) ?? null;
   const thisWeek = weekStartISO(0);
   const lastWeek = weekStartISO(1);
@@ -1513,6 +1649,11 @@ export default function Page() {
         @keyframes gdCurtainContinue {
           from { transform: translateY(0); }
           to   { transform: translateY(100%); }
+        }
+        @keyframes pixelBounce {
+          0%, 100% { transform: translateY(0px); }
+          40%      { transform: translateY(-4px); }
+          60%      { transform: translateY(-2px); }
         }
       `}</style>
     </div>
@@ -1685,7 +1826,7 @@ export default function Page() {
           <div
             className="fixed inset-0 flex items-center justify-center"
             style={{
-              backgroundColor: designTheme.main.bg, zIndex: 50, cursor: 'none',
+              backgroundColor: designTheme.main.bg, zIndex: 900, cursor: 'none',
               opacity: overlayExiting ? 0 : 1,
               transition: overlayExiting ? 'opacity 280ms ease' : 'none',
             }}
@@ -1703,6 +1844,15 @@ export default function Page() {
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px' }}
                 onMouseEnter={showRadial}>
                 <div className="text-center">
+                  {/* Pixel critter — shown above name in pixel mode */}
+                  {pixelMode && focusedStudent && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
+                      <PixelAvatar name={focusedStudent.name} size={64} color={designTheme.main.heading} bounce />
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: designTheme.main.body, opacity: 0.4, marginTop: 6 }}>
+                        {CRITTER_NAMES[getCritterIndex(focusedStudent.name)]}
+                      </span>
+                    </div>
+                  )}
                   <h2 className="font-black leading-none"
                     style={{
                       fontSize: 'clamp(2.5rem, 8vw, 5rem)',
@@ -1792,14 +1942,22 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Back hint */}
-            <p style={{
-              position: 'absolute', bottom: 32,
-              fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: designTheme.main.body, opacity: 0.3,
-            }}>
-              Click anywhere to go back
-            </p>
+            {/* Back hint + Student login */}
+            <div style={{ position: 'absolute', bottom: 32, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 40px' }}>
+              <p style={{
+                fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: designTheme.main.body, opacity: 0.3, margin: 0,
+              }}>
+                Click anywhere to go back
+              </p>
+              <button
+                onClick={e => { e.stopPropagation(); setFocusedRosterId(null); setRosterHovered(false); navigate(() => setView('student-login')); }}
+                style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: designTheme.main.body, opacity: 0.3, background: 'none', border: 'none', cursor: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}>
+                Student login →
+              </button>
+            </div>
           </div>
         )}
 
@@ -1822,7 +1980,7 @@ export default function Page() {
                 Students
               </h1>
             </div>
-            {/* Theme switcher */}
+            {/* Theme switcher + pixel toggle */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
               <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#000', opacity: 0.35 }}>
                 Coach view
@@ -1841,6 +1999,41 @@ export default function Page() {
                     }} />
                 ))}
               </div>
+              {/* Pixel mode toggle */}
+              <button
+                onClick={() => setPixelMode(p => !p)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  background: 'none', border: 'none', cursor: 'none', padding: 0, marginTop: 2,
+                }}>
+                <span style={{
+                  fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em',
+                  textTransform: 'uppercase', color: '#000',
+                  opacity: pixelMode ? 0.8 : 0.35,
+                  transition: 'opacity 200ms ease',
+                }}>
+                  Pixel
+                </span>
+                {/* Square toggle pill */}
+                <div style={{
+                  width: 30, height: 16, borderRadius: 2,
+                  backgroundColor: pixelMode ? '#000' : 'transparent',
+                  border: '1.5px solid rgba(0,0,0,0.25)',
+                  position: 'relative',
+                  transition: 'background-color 200ms ease',
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 2,
+                    left: pixelMode ? 14 : 2,
+                    width: 8, height: 8,
+                    backgroundColor: pixelMode ? '#fff' : 'rgba(0,0,0,0.3)',
+                    borderRadius: 1,
+                    transition: 'left 150ms ease, background-color 150ms ease',
+                  }} />
+                </div>
+                {pixelMode && <PixelAvatar name={students[0]?.name ?? 'A'} size={16} color="#000" bounce />}
+              </button>
             </div>
           </div>
 
@@ -1850,6 +2043,7 @@ export default function Page() {
               <RosterTile
                 key={student.id}
                 student={student}
+                pixelMode={pixelMode}
                 onClick={() => { setFocusedRosterId(student.id); setRosterHovered(false); }}
               />
             ))}
@@ -1924,9 +2118,52 @@ export default function Page() {
             )}
           </div>
 
-          {/* Student login link */}
-          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => navigate(() => setView('student-login'))}
+          {/* Bottom row: pixel toggle + student login */}
+          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(0,0,0,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 60 }}>
+            {/* Pixel mode toggle */}
+            <button
+              onClick={() => setPixelMode(p => !p)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: 'none', border: 'none', cursor: 'none', padding: 0,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+              {/* Toggle pill */}
+              <div style={{
+                width: 36, height: 20, borderRadius: 2,
+                backgroundColor: pixelMode ? '#000' : 'transparent',
+                border: '1.5px solid rgba(0,0,0,0.25)',
+                position: 'relative',
+                transition: 'background-color 200ms ease',
+                flexShrink: 0,
+              }}>
+                <div style={{
+                  position: 'absolute', top: 2,
+                  left: pixelMode ? 18 : 2,
+                  width: 12, height: 12,
+                  backgroundColor: pixelMode ? '#fff' : 'rgba(0,0,0,0.3)',
+                  borderRadius: 1,
+                  transition: 'left 200ms ease, background-color 200ms ease',
+                  imageRendering: 'pixelated',
+                }} />
+              </div>
+              {/* Mini critter preview when off, bouncing when on */}
+              {pixelMode
+                ? <PixelAvatar name={students[0]?.name ?? 'A'} size={20} color="#000" bounce />
+                : null}
+              <span style={{
+                fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em',
+                textTransform: 'uppercase', color: '#000',
+                opacity: pixelMode ? 0.8 : 0.3,
+                transition: 'opacity 200ms ease',
+              }}>
+                {pixelMode ? 'Pixel mode on' : 'Pixel mode'}
+              </span>
+            </button>
+
+            {/* Student login */}
+            <button onClick={() => { setFocusedRosterId(null); setRosterHovered(false); navigate(() => setView('student-login')); }}
               style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.3, background: 'none', border: 'none', cursor: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
               onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
               onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}>
@@ -2043,7 +2280,7 @@ export default function Page() {
                 <ArrowLeft size={13} /> Sign out
               </button>
             ) : (
-              <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(selectedStudent.id); setRosterHovered(false); })}
+              <button onClick={() => navigate(() => { setView('roster'); setFocusedRosterId(null); setRosterHovered(false); })}
                 className="flex items-center gap-1.5 text-xs flex-shrink-0"
                 style={{ color: 'rgba(255,255,255,0.5)' }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
@@ -2055,14 +2292,18 @@ export default function Page() {
             {/* Avatar */}
             <div className="w-10 h-10 flex items-center justify-center text-base font-black flex-shrink-0"
               style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#fff' }}>
-              {student.name[0]}
+              {s.preset === 'pixel'
+                ? <PixelAvatar name={student.name} size={36} color="#fff" />
+                : student.name[0]}
             </div>
 
             {/* Name + grade */}
             <div className="min-w-0">
               <h1 className="font-black text-lg leading-none" style={{ color: '#fff' }}>{student.name}</h1>
               <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                {student.grade && `${student.grade} · `}{studentSessions.length} sessions · {studentHabits.length} habits
+                {s.preset === 'pixel'
+                  ? `${CRITTER_NAMES[getCritterIndex(student.name)]} · ${student.grade ? `${student.grade} · ` : ''}${studentSessions.length} sessions`
+                  : `${student.grade ? `${student.grade} · ` : ''}${studentSessions.length} sessions · ${studentHabits.length} habits`}
               </p>
             </div>
 
@@ -2079,15 +2320,21 @@ export default function Page() {
                 </button>
               )}
               {/* Student switcher — teacher only */}
-              {!studentMode && students.filter(s => s.id !== student.id).slice(0, 4).map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => navigate(() => { setSelectedStudentId(s.id); setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); })}
-                  className="w-7 h-7 flex items-center justify-center font-bold transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11 }}>
-                  {s.name[0]}
-                </button>
-              ))}
+              {!studentMode && students.filter(s => s.id !== student.id).slice(0, 4).map(s => {
+                const sTheme = studentThemes[s.id];
+                const isPixel = sTheme?.preset === 'pixel';
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => navigate(() => { setSelectedStudentId(s.id); setView('student'); setStudentTab('looking-ahead'); setTabVisible(true); })}
+                    className="w-7 h-7 flex items-center justify-center font-bold transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 11 }}>
+                    {isPixel
+                      ? <PixelAvatar name={s.name} size={20} color="#fff" bounce={false} />
+                      : s.name[0]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -2428,6 +2675,7 @@ export default function Page() {
                   <div style={cardStyle}>
                     <ThemeCustomizer
                       theme={theme}
+                      studentName={student.name}
                       onSave={t => setStudentThemes(prev => ({ ...prev, [student.id]: t }))}
                     />
                   </div>
