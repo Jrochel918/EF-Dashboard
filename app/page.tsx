@@ -1428,10 +1428,13 @@ export default function Page() {
       // Capture Google provider token for Calendar API use
       if (session?.provider_token) setGoogleToken(session.provider_token);
       if (session?.user?.email) {
-        const matched = students.find(s =>
-          s.name.toLowerCase().replace(/\s+/g, '') ===
-          (session.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '')
-        );
+        const emailPrefix = (session.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
+        const matched = students.find(s => {
+          const parts = s.name.toLowerCase().split(/\s+/);
+          const forward = parts.join('');                      // johnsmith
+          const reverse = [...parts].reverse().join('');       // smithjohn
+          return emailPrefix === forward || emailPrefix === reverse;
+        });
         if (matched) {
           setStudentMode(true);
           setSelectedStudentId(matched.id);
