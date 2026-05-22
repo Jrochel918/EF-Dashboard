@@ -1364,17 +1364,27 @@ type StudentTab = 'looking-back' | 'looking-ahead' | 'growth' | 'drills' | 'spac
 const COACH_PIN = '1234'; // ← change this to whatever you want
 
 // ── localStorage hook ──────────────────────────────────────────────────────────
+// Two-pass: start with initial (safe for SSR), load from storage after hydration,
+// then write only on real changes (skip the first write to avoid overwriting storage).
 function useLocalStorage<T>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [value, setValue] = useState<T>(() => {
-    if (typeof window === 'undefined') return initial;
-    try {
-      const stored = localStorage.getItem(key);
-      return stored !== null ? (JSON.parse(stored) as T) : initial;
-    } catch { return initial; }
-  });
+  const [value, setValue] = useState<T>(initial);
+  const isFirstWrite = useRef(true);
+
+  // After hydration: read what's actually stored
   useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota exceeded */ }
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw !== null) setValue(JSON.parse(raw) as T);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Write on change, but skip the very first invocation (mount with initial)
+  useEffect(() => {
+    if (isFirstWrite.current) { isFirstWrite.current = false; return; }
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   }, [key, value]);
+
   return [value, setValue];
 }
 
