@@ -1262,6 +1262,8 @@ export default function Page() {
     // Listen for sign-in / sign-out
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSupabaseUser(session?.user ?? null);
+      // Capture Google provider token for Calendar API use
+      if (session?.provider_token) setGoogleToken(session.provider_token);
       if (session?.user?.email) {
         const matched = students.find(s =>
           s.name.toLowerCase().replace(/\s+/g, '') ===
@@ -1277,6 +1279,7 @@ export default function Page() {
         // Signed out
         setStudentMode(false);
         setPrivacyAccepted(false);
+        setGoogleToken(null);
       }
     });
 
@@ -1314,28 +1317,8 @@ export default function Page() {
   const [googleToken, setGoogleToken] = useState<string | null>(null);
   const [gcalAdding, setGcalAdding] = useState(false);
   const [gcalSuccess, setGcalSuccess] = useState(false);
-  const gcalClientRef = useRef<{ requestAccessToken: () => void } | null>(null);
-
-  // Load Google Identity Services once on mount
-  useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) return;
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.async = true;
-    s.onload = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const g = (window as any).google;
-      if (!g) return;
-      gcalClientRef.current = g.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: (resp: { access_token: string }) => setGoogleToken(resp.access_token),
-      });
-    };
-    document.head.appendChild(s);
-    return () => { try { document.head.removeChild(s); } catch {} };
-  }, []);
+  // Google Calendar token comes from the Supabase session (provider_token)
+  // — GIS script no longer needed since Supabase handles Google OAuth
 
   // Clear timer & hide radial whenever focus changes
   useEffect(() => {
@@ -1393,7 +1376,8 @@ export default function Page() {
   // ── Google Calendar: direct event insert (no popup) ──────────────────────────
   async function addAllToGoogleCalendar(items: Obligation[]) {
     if (!googleToken) {
-      gcalClientRef.current?.requestAccessToken();
+      // Token comes from Supabase session — prompt re-sign-in if missing
+      await handleGoogleSignIn();
       return;
     }
     const withDate = items.filter(ob => ob.plannedDate && !ob.completed);
@@ -1427,7 +1411,7 @@ export default function Page() {
           body: JSON.stringify(body),
         });
         // Token may have expired
-        if (res.status === 401) { setGoogleToken(null); gcalClientRef.current?.requestAccessToken(); break; }
+        if (res.status === 401) { setGoogleToken(null); await handleGoogleSignIn(); break; }
       } catch { /* ignore individual failures */ }
     }
     setGcalAdding(false);
@@ -2209,7 +2193,7 @@ export default function Page() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => gcalClientRef.current?.requestAccessToken()}
+                          onClick={() => handleGoogleSignIn()}
                           style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#000', border: '1px solid #000', padding: '6px 12px', cursor: 'pointer', opacity: 0.6 }}>
                           Connect Google Calendar
                         </button>
@@ -2427,7 +2411,7 @@ export default function Page() {
                     {googleToken ? (
                       <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#16a34a' }}>✓ Connected</span>
                     ) : (
-                      <button onClick={() => gcalClientRef.current?.requestAccessToken()}
+                      <button onClick={() => handleGoogleSignIn()}
                         style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: '#000', color: '#fff', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>
                         Connect
                       </button>
@@ -2441,20 +2425,7 @@ export default function Page() {
                       <p style={{ fontSize: '0.7rem', color: designTheme.main.body, opacity: 0.5 }}>Share writing with your coach for feedback and progress tracking</p>
                     </div>
                     <button
-                      onClick={() => {
-                        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-                        if (!clientId) { alert('Google client ID not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in your .env.local file.'); return; }
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const g = (window as any).google;
-                        if (!g) { alert('Google Identity Services not loaded yet.'); return; }
-                        g.accounts.oauth2.initTokenClient({
-                          client_id: clientId,
-                          scope: 'https://www.googleapis.com/auth/drive.readonly',
-                          callback: (resp: { access_token: string }) => {
-                            if (resp.access_token) alert('Google Drive connected! Your coach can now see Docs you share.');
-                          },
-                        }).requestAccessToken();
-                      }}
+                      onClick={() => handleGoogleSignIn()}
                       style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#000', border: '1px solid #000', padding: '8px 16px', cursor: 'pointer', opacity: 0.6 }}>
                       Connect
                     </button>
