@@ -32,7 +32,7 @@ const AVATAR_COLORS: [string, string][] = [
 ];
 
 type Task = { id: string; text: string; completed: boolean };
-type Session = { id: string; studentId: string; date: string; efRatings: Record<EFKey, number>; tasks: Task[]; notes: string; selfRating?: number; selfNote?: string };
+type Session = { id: string; studentId: string; date: string; efRatings: Record<EFKey, number>; tasks: Task[]; notes: string; selfRating?: number; selfNote?: string; motivationLevel?: number };
 type Student = { id: string; name: string; grade: string };
 type Habit = { id: string; studentId: string; text: string };
 type WeekGoal = { id: string; text: string; completed: boolean };
@@ -283,13 +283,16 @@ function useCursor() {
 // RosterTile — Goodman Gallery–style full-width typographic row
 // ─────────────────────────────────────────────────────────────────────────────
 function RosterTile({
-  student, onClick,
+  student, onClick, lastSession, trend,
 }: {
   student: Student;
   onClick: () => void;
+  lastSession?: Session;
+  trend?: 'up' | 'flat' | 'down' | null;
 }) {
   const [hoverCount, setHoverCount] = React.useState(0);
   const [isHovered, setIsHovered] = React.useState(false);
+  const trendColor = trend === 'up' ? '#16a34a' : trend === 'down' ? '#dc2626' : '#d97706';
 
   return (
     <button
@@ -319,22 +322,24 @@ function RosterTile({
       }}>
         <AnimatedText text={student.name} animKey={hoverCount} stagger={18} />
       </span>
-      {/* Grade — right side */}
-      {student.grade && (
-        <span style={{
-          fontSize: '0.625rem',
-          fontWeight: 600,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: '#000',
-          opacity: isHovered ? 0.2 : 0.35,
-          transition: 'opacity 200ms ease',
-          flexShrink: 0,
-          marginLeft: '2rem',
-        }}>
-          {student.grade}
-        </span>
-      )}
+      {/* Right side: trend dot + last session + grade */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0, marginLeft: '2rem', opacity: isHovered ? 0.3 : 1, transition: 'opacity 200ms ease' }}>
+        {lastSession && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {trend && (
+              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: trendColor, flexShrink: 0 }} title={trend === 'up' ? 'Improving' : trend === 'down' ? 'Needs attention' : 'Holding steady'} />
+            )}
+            <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#000', opacity: 0.4 }}>
+              {fmtDate(lastSession.date)}
+            </span>
+          </div>
+        )}
+        {student.grade && (
+          <span style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#000', opacity: 0.35 }}>
+            {student.grade}
+          </span>
+        )}
+      </div>
     </button>
   );
 }
@@ -451,7 +456,12 @@ function Card({ children, className = '', onClick }: { children: React.ReactNode
   return <div onClick={onClick} className={`bg-white border border-neutral-200 ${onClick ? 'cursor-pointer' : ''} ${className}`}>{children}</div>;
 }
 function SkillBar({ value, color }: { value: number; color: string }) {
-  return <div className="flex gap-0.5">{[1,2,3,4,5].map(v => <div key={v} className="h-0.5 flex-1" style={{ backgroundColor: v <= value ? color : '#e7e5e4' }} />)}</div>;
+  return (
+    <div>
+      <div className="flex gap-0.5 mb-1">{[1,2,3,4,5].map(v => <div key={v} className="flex-1" style={{ height: 6, backgroundColor: v <= value ? color : '#e7e5e4', borderRadius: 2 }} />)}</div>
+      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color, opacity: 0.8 }}>{EF_LEVEL_LABELS[value]}</span>
+    </div>
+  );
 }
 function SectionLabel({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -1494,11 +1504,13 @@ export default function Page() {
   const [logDate, setLogDate] = useState('');
   const [logRatings, setLogRatings] = useState<Record<EFKey, number>>({ taskInitiation: 3, workingMemory: 3, timeManagement: 3 });
   const [logNotes, setLogNotes] = useState('');
+  const [logMotivation, setLogMotivation] = useState(0);
 
   function openLogSession() {
     setLogDate(new Date().toISOString().slice(0, 10));
     setLogRatings({ taskInitiation: 3, workingMemory: 3, timeManagement: 3 });
     setLogNotes('');
+    setLogMotivation(0);
     setShowLogSession(true);
   }
 
@@ -1510,6 +1522,7 @@ export default function Page() {
       efRatings: logRatings,
       tasks: [],
       notes: logNotes,
+      motivationLevel: logMotivation || undefined,
     };
     setSessions(prev => [...prev, session]);
     setShowLogSession(false);
@@ -2186,13 +2199,26 @@ export default function Page() {
 
           {/* Name list — full-width typographic rows */}
           <div style={{ borderBottom: '1px solid #000' }}>
-            {students.map(student => (
-              <RosterTile
-                key={student.id}
-                student={student}
-                onClick={() => { setFocusedRosterId(student.id); setRosterHovered(false); }}
-              />
-            ))}
+            {students.map(student => {
+              const stuSessions = sessions.filter(s => s.studentId === student.id).sort((a, b) => a.date.localeCompare(b.date));
+              const last = stuSessions[stuSessions.length - 1] ?? null;
+              let trend: 'up' | 'flat' | 'down' | null = null;
+              if (stuSessions.length >= 2) {
+                const prev = stuSessions[stuSessions.length - 2];
+                const avgLast = Object.values(last.efRatings).reduce((a, b) => a + b, 0) / 3;
+                const avgPrev = Object.values(prev.efRatings).reduce((a, b) => a + b, 0) / 3;
+                trend = avgLast > avgPrev + 0.3 ? 'up' : avgLast < avgPrev - 0.3 ? 'down' : 'flat';
+              }
+              return (
+                <RosterTile
+                  key={student.id}
+                  student={student}
+                  lastSession={last}
+                  trend={trend}
+                  onClick={() => { setFocusedRosterId(student.id); setRosterHovered(false); }}
+                />
+              );
+            })}
 
             {/* Add student row */}
             {showAddStudent ? (
@@ -2400,6 +2426,18 @@ export default function Page() {
               </div>
             </div>
             <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>Motivation & effort</p>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['😩','😕','😐','😊','🔥'] as const).map((emoji, i) => (
+                  <button key={i} onClick={() => setLogMotivation(i + 1)}
+                    style={{ flex: 1, padding: '8px 0', fontSize: '1.1rem', border: '1.5px solid', borderColor: logMotivation === i + 1 ? '#000' : '#ddd', backgroundColor: logMotivation === i + 1 ? '#000' : 'transparent', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, transition: 'all 120ms ease' }}>
+                    <span>{emoji}</span>
+                    <span style={{ fontSize: '0.45rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: logMotivation === i + 1 ? '#fff' : 'rgba(0,0,0,0.4)' }}>{['Low','Rough','Okay','Good','High'][i]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>Session notes</p>
               <textarea value={logNotes} onChange={e => setLogNotes(e.target.value)}
                 rows={3} placeholder="What did you work on? What did you notice?"
@@ -2601,10 +2639,18 @@ export default function Page() {
                     <p className="text-sm text-stone-400 text-center py-4">Nothing was set for last week yet.</p>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between px-3 py-2 mb-3 text-sm" style={{ backgroundColor: `${accent}10`, border: `1px solid ${accent}20` }}>
-                        <span className="font-semibold text-stone-700">{prevCompleted}/{prevTotal} completed</span>
-                        <span className="text-xs font-medium" style={{ color: designTheme.main.body }}>{prevCompleted === prevTotal ? 'All done' : prevCompleted > prevTotal / 2 ? 'Strong week' : 'Keep at it'}</span>
-                      </div>
+                      {prevCompleted === prevTotal && prevTotal > 0 ? (
+                        <div className="px-3 py-3 mb-3 text-center" style={{ backgroundColor: `${accent}15`, border: `2px solid ${accent}40` }}>
+                          <div style={{ fontSize: '1.4rem', marginBottom: 2 }}>🎉</div>
+                          <p style={{ fontSize: '0.8rem', fontWeight: 700, color: accent }}>You crushed it — everything done!</p>
+                          <p style={{ fontSize: '0.65rem', color: designTheme.main.body, opacity: 0.6, marginTop: 2 }}>{prevTotal} of {prevTotal} goals &amp; habits completed</p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between px-3 py-2 mb-3 text-sm" style={{ backgroundColor: `${accent}10`, border: `1px solid ${accent}20` }}>
+                          <span className="font-semibold text-stone-700">{prevCompleted}/{prevTotal} completed</span>
+                          <span className="text-xs font-medium" style={{ color: designTheme.main.body }}>{prevCompleted > prevTotal / 2 ? 'Strong week' : 'Keep building'}</span>
+                        </div>
+                      )}
                       {lastWeekEntry.goals.length > 0 && (
                         <div className="mb-2">
                           <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: designTheme.main.body, opacity: 0.5 }}>Goals</p>
