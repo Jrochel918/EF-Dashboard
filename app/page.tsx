@@ -1435,18 +1435,20 @@ export default function Page() {
   const isCoach = supabaseUser?.app_metadata?.role === 'coach';
 
   useEffect(() => {
-    // Check existing session
-    supabase.auth.getUser().then(({ data }) => {
-      setSupabaseUser(data.user ?? null);
-      if (data.user) {
-        const role = data.user.app_metadata?.role;
+    // Check existing session — use getSession to also recover provider_token (needed for Calendar)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user ?? null;
+      setSupabaseUser(user);
+      if (session?.provider_token) setGoogleToken(session.provider_token);
+      if (user) {
+        const role = user.app_metadata?.role;
         if (role === 'coach') {
           // Coach — stay on roster (default view)
           return;
         }
         // If a student is already logged in via Google, auto-match them
-        if (data.user.email) {
-          const emailPrefix = (data.user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
+        if (user.email) {
+          const emailPrefix = (user.email ?? '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
           const matched = students.find(s => {
             const parts = s.name.toLowerCase().split(/\s+/);
             return emailPrefix === parts.join('') || emailPrefix === [...parts].reverse().join('');
