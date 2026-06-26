@@ -2783,13 +2783,16 @@ Obstacle: ${logObstacle}` : ''),
                                 style={{ borderBottom: '1px solid #ddd', paddingBottom: 4, backgroundColor: 'transparent', color: designTheme.main.body }}
                                 value={editObText} onChange={e => setEditObText(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && saveObEdit()} autoFocus />
-                              <input type="datetime-local" className="text-xs outline-none mb-2 block"
-                                style={{ color: designTheme.main.body, backgroundColor: 'transparent' }}
-                                value={editObDate && editObTime ? `${editObDate}T${editObTime}` : editObDate ? `${editObDate}T00:00` : ''}
-                                onChange={e => {
-                                  const [d, t] = e.target.value.split('T');
-                                  setEditObDate(d ?? ''); setEditObTime(t ?? '');
-                                }} />
+                              <div className="flex gap-2 mb-2">
+                                <input type="date" className="text-xs outline-none"
+                                  style={{ color: designTheme.main.body, backgroundColor: 'transparent', borderBottom: '1px solid #ddd' }}
+                                  value={editObDate}
+                                  onChange={e => setEditObDate(e.target.value)} />
+                                <input type="time" className="text-xs outline-none"
+                                  style={{ color: designTheme.main.body, backgroundColor: 'transparent', borderBottom: '1px solid #ddd', opacity: 0.7 }}
+                                  value={editObTime}
+                                  onChange={e => setEditObTime(e.target.value)} />
+                              </div>
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <button onClick={saveObEdit} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', backgroundColor: '#000', color: '#fff', border: 'none', padding: '5px 12px', cursor: 'pointer' }}>Save</button>
                                 <button onClick={() => setEditingObId(null)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', backgroundColor: 'transparent', color: '#000', border: '1px solid #ccc', padding: '5px 12px', cursor: 'pointer' }}>Cancel</button>
@@ -2827,13 +2830,14 @@ Obstacle: ${logObstacle}` : ''),
                       placeholder="Add assignment or task…"
                       value={newObText} onChange={e => setNewObText(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && addObligation()} />
-                    <input type="datetime-local" className="border px-2 py-1.5 text-xs outline-none"
+                    <input type="date" className="border px-2 py-1.5 text-xs outline-none"
                       style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body }}
-                      value={newObDate && newObTime ? `${newObDate}T${newObTime}` : newObDate ? `${newObDate}T00:00` : ''}
-                      onChange={e => {
-                        const [d, t] = e.target.value.split('T');
-                        setNewObDate(d ?? ''); setNewObTime(t ?? '');
-                      }} />
+                      value={newObDate}
+                      onChange={e => setNewObDate(e.target.value)} />
+                    <input type="time" className="border px-2 py-1.5 text-xs outline-none"
+                      style={{ borderColor: designTheme.main.cardBorder, backgroundColor: designTheme.main.card, color: designTheme.main.body, opacity: 0.7, width: 90 }}
+                      value={newObTime}
+                      onChange={e => setNewObTime(e.target.value)} />
                   </div>
                   <button
                     onClick={addObligation}
