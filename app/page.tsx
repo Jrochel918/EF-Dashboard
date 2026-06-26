@@ -960,7 +960,7 @@ function AssessmentView({ student, fg, onComplete, onBack }: {
                   </span>
                 </div>
                 <SkillBar value={rating} color={area.color} />
-                {rating <= 2 && <p className="text-xs text-stone-500 mt-1.5">Priority area — worth focusing on in early sessions.</p>}
+                {rating <= 2 && <p className="text-xs mt-1.5" style={{ color: area.color }}>Great place to start — this is where coaching makes the biggest difference.</p>}
               </Card>
             ))}
           </div>
@@ -1099,7 +1099,7 @@ function AssessmentView({ student, fg, onComplete, onBack }: {
       <div className="max-w-lg mx-auto px-4 py-10">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-8 transition-colors"><ArrowLeft size={15} /> Back</button>
         <h1 className="text-2xl font-bold text-stone-800 mb-1">EF Assessment</h1>
-        <p className="text-stone-500 text-sm mb-8">For {firstName} · ~15 minutes · 40 questions + 5 scenarios</p>
+        <p className="text-stone-500 text-sm mb-8">For {firstName} · Takes about 15 minutes · Let's figure out how their brain works best</p>
         <div className="space-y-2.5 mb-8">
           {[
             { label: 'Getting Started',         count: 10, color: AREA_META.ti.color, bg: AREA_META.ti.bg },
@@ -1507,23 +1507,36 @@ export default function Page() {
   const [logRatings, setLogRatings] = useState<Record<EFKey, number>>({ taskInitiation: 3, workingMemory: 3, timeManagement: 3 });
   const [logNotes, setLogNotes] = useState('');
   const [logMotivation, setLogMotivation] = useState(0);
+  const [logObstacle, setLogObstacle] = useState('');
+  const [logNextSteps, setLogNextSteps] = useState('');
 
   function openLogSession() {
     setLogDate(new Date().toISOString().slice(0, 10));
     setLogRatings({ taskInitiation: 3, workingMemory: 3, timeManagement: 3 });
     setLogNotes('');
     setLogMotivation(0);
+    setLogObstacle('');
+    setLogNextSteps('');
     setShowLogSession(true);
   }
 
   function saveLogSession(studentId: string) {
+    const weekStart = weekStartISO(0);
+    if (logNextSteps.trim()) {
+      setWeekEntries(prev => {
+        const exists = prev.find(e => e.studentId === studentId && e.weekStart === weekStart);
+        if (exists) return prev.map(e => e.studentId === studentId && e.weekStart === weekStart ? { ...e, planNotes: logNextSteps } : e);
+        return [...prev, { id: `we-${Date.now()}`, studentId, weekStart, goals: [], habitChecks: [], planNotes: logNextSteps }];
+      });
+    }
     const session: Session = {
       id: `ses-${Date.now()}`,
       studentId,
       date: logDate || new Date().toISOString().slice(0, 10),
       efRatings: logRatings,
       tasks: [],
-      notes: logNotes,
+      notes: logNotes + (logObstacle ? `
+Obstacle: ${logObstacle}` : ''),
       motivationLevel: logMotivation || undefined,
     };
     setSessions(prev => [...prev, session]);
@@ -1572,7 +1585,7 @@ export default function Page() {
   // Google Calendar token comes from the Supabase session (provider_token)
   // — GIS script no longer needed since Supabase handles Google OAuth
 
-  // Clear timer & hide radial whenever focus changes
+  // Clear radial whenever focused student changes
   useEffect(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     radialVisibleRef.current = false;
@@ -1580,26 +1593,14 @@ export default function Page() {
     return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
   }, [focusedRosterId]);
 
-  // Call when mouse enters the name: shows the radial and starts 4s idle clock
+  // Show radial when mouse enters the name — stays until overlay is dismissed
   const showRadial = React.useCallback(() => {
     radialVisibleRef.current = true;
     setRosterHovered(true);
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => {
-      radialVisibleRef.current = false;
-      setRosterHovered(false);
-    }, 4000);
   }, []);
 
-  // Call on any mouse movement over the overlay: only extends timer if radial is already visible
-  const keepRadialAlive = React.useCallback(() => {
-    if (!radialVisibleRef.current) return;
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => {
-      radialVisibleRef.current = false;
-      setRosterHovered(false);
-    }, 4000);
-  }, []);
+  // No-op — radial no longer hides on mouse movement
+  const keepRadialAlive = React.useCallback(() => {}, []);
 
   // ── Page-wipe transition ─────────────────────────────────────────────────
   const [curtainPhase, setCurtainPhase] = useState<'idle' | 'covering' | 'uncovering'>('idle');
@@ -2445,6 +2446,23 @@ export default function Page() {
                 rows={3} placeholder="What did you work on? What did you notice?"
                 style={{ width: '100%', border: '1px solid #e5e5e5', padding: '10px 12px', fontSize: '0.85rem', resize: 'none', outline: 'none', backgroundColor: 'transparent', fontFamily: 'inherit', color: '#000' }} />
             </div>
+            <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>What got in the way? <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span></p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {['Emotional dysregulation','Lost persistence','Inflexibility','Inattention','Impulsivity','Distractions','Low motivation','Nothing — great session'].map(opt => (
+                  <button key={opt} onClick={() => setLogObstacle(p => p === opt ? '' : opt)}
+                    style={{ padding: '5px 10px', fontSize: '0.7rem', border: '1px solid', borderColor: logObstacle === opt ? '#000' : '#ddd', backgroundColor: logObstacle === opt ? '#000' : 'transparent', color: logObstacle === opt ? '#fff' : '#000', cursor: 'pointer', transition: 'all 120ms ease' }}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>Next steps / focus for next week</p>
+              <textarea value={logNextSteps} onChange={e => setLogNextSteps(e.target.value)}
+                rows={2} placeholder="What will you work on next session?"
+                style={{ width: '100%', border: '1px solid #e5e5e5', padding: '10px 12px', fontSize: '0.85rem', resize: 'none', outline: 'none', backgroundColor: 'transparent', fontFamily: 'inherit', color: '#000' }} />
+            </div>
             <button onClick={() => saveLogSession(student.id)}
               style={{ width: '100%', padding: '12px 0', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
               Save session
@@ -2896,15 +2914,27 @@ export default function Page() {
                   <Card className="p-5">
                     <p className="text-sm font-bold text-stone-700 mb-4">Session history</p>
                     <div className="space-y-4">
-                      {[...studentSessions].reverse().map((s, i) => (
-                        <div key={s.id} className="relative pl-5">
-                          {i < studentSessions.length - 1 && <div className="absolute left-[7px] top-6 bottom-0 w-px bg-stone-100" />}
-                          <div className="absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-stone-200 bg-white" />
-                          <p className="text-xs font-semibold text-stone-500 mb-1">{fmtDateLong(s.date)}</p>
-                          {s.notes && <p className="text-sm text-stone-600 mb-1.5 leading-relaxed">{s.notes}</p>}
-                          <div className="flex gap-3">{EF_AREAS.map(area => (<div key={area.key} className="flex items-center gap-1"><span className="text-xs text-stone-400">{area.label.split(' ')[0]}</span><span className="text-xs font-bold" style={{ color: area.color }}>{s.efRatings[area.key]}</span></div>))}</div>
-                        </div>
-                      ))}
+                      {[...studentSessions].reverse().map((s, i) => {
+                        const MOTIVATION_EMOJIS = ['😩','😕','😐','😊','🔥'];
+                        const coachNotes = s.notes ? s.notes.split('\nObstacle:')[0].trim() : '';
+                        const obstacle = s.notes?.includes('\nObstacle:') ? s.notes.split('\nObstacle:')[1]?.trim() : null;
+                        return (
+                          <div key={s.id} className="relative pl-5">
+                            {i < studentSessions.length - 1 && <div className="absolute left-[7px] top-6 bottom-0 w-px bg-stone-100" />}
+                            <div className="absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-stone-200 bg-white" />
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-xs font-semibold text-stone-500">{fmtDateLong(s.date)}</p>
+                              {s.motivationLevel && <span title="Motivation level" style={{ fontSize: '0.9rem' }}>{MOTIVATION_EMOJIS[s.motivationLevel - 1]}</span>}
+                            </div>
+                            {/* Coach notes — hidden from student view */}
+                            {!studentMode && coachNotes && <p className="text-sm text-stone-600 mb-1.5 leading-relaxed">{coachNotes}</p>}
+                            {!studentMode && obstacle && <p className="text-xs mb-1.5 px-2 py-0.5 inline-block" style={{ backgroundColor: '#fef3c7', color: '#92400e' }}>Obstacle: {obstacle}</p>}
+                            {/* Student sees their own note if they left one */}
+                            {studentMode && s.selfNote && <p className="text-sm mb-1.5 leading-relaxed" style={{ color: designTheme.main.body, opacity: 0.7, fontStyle: 'italic' }}>"{s.selfNote}"</p>}
+                            <div className="flex gap-3">{EF_AREAS.map(area => (<div key={area.key} className="flex items-center gap-1"><span className="text-xs text-stone-400">{area.label.split(' ')[0]}</span><span className="text-xs font-bold" style={{ color: area.color }}>{s.efRatings[area.key]}</span></div>))}</div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </Card>
                 </div>
