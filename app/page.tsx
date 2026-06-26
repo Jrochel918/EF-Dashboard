@@ -1636,7 +1636,11 @@ Obstacle: ${logObstacle}` : ''),
       return;
     }
     const withDate = items.filter(ob => ob.plannedDate && !ob.completed);
-    if (withDate.length === 0) return;
+    if (withDate.length === 0) {
+      setAuthError('Add a date to your week items first — then they\'ll sync to Google Calendar.');
+      setTimeout(() => setAuthError(null), 4000);
+      return;
+    }
     setGcalAdding(true);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     for (const ob of withDate) {
@@ -2739,13 +2743,16 @@ Obstacle: ${logObstacle}` : ''),
                     <div style={{ flexShrink: 0, marginLeft: 12 }}>
                       {authError && <p style={{ fontSize: '0.65rem', color: '#c00', marginBottom: 6 }}>{authError}</p>}
                       {gcalSuccess ? (
-                        <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#16a34a' }}>✓ Added to Calendar</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#16a34a', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '5px 10px' }}>
+                          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="6.5" fill="#16a34a"/><path d="M3.5 6.5L5.5 8.5L9.5 4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          Added to Calendar
+                        </span>
                       ) : googleToken ? (
                         <button
                           onClick={() => addAllToGoogleCalendar(thisWeekObs)}
-                          disabled={gcalAdding || thisWeekObs.filter(o => o.plannedDate && !o.completed).length === 0}
+                          disabled={gcalAdding}
                           style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', backgroundColor: '#000', color: '#fff', border: 'none', padding: '6px 12px', cursor: gcalAdding ? 'wait' : 'pointer', opacity: gcalAdding ? 0.5 : 1 }}>
-                          {gcalAdding ? 'Adding…' : `Add all to Google Cal`}
+                          {gcalAdding ? 'Adding…' : 'Add all to Google Cal'}
                         </button>
                       ) : (
                         <button
