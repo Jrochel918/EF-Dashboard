@@ -1631,14 +1631,14 @@ Obstacle: ${logObstacle}` : ''),
   // ── Google Calendar: direct event insert (no popup) ──────────────────────────
   async function addAllToGoogleCalendar(items: Obligation[]) {
     if (!googleToken) {
-      // Token comes from Supabase session — prompt re-sign-in if missing
-      await handleGoogleSignIn();
+      setAuthError('Google not connected — go to the Space tab to reconnect.');
+      setTimeout(() => setAuthError(null), 6000);
       return;
     }
     const withDate = items.filter(ob => ob.plannedDate && !ob.completed);
     if (withDate.length === 0) {
-      setAuthError('Add a date to your week items first — then they\'ll sync to Google Calendar.');
-      setTimeout(() => setAuthError(null), 4000);
+      setAuthError('Add a date to at least one item first, then sync to Calendar.');
+      setTimeout(() => setAuthError(null), 5000);
       return;
     }
     setGcalAdding(true);
@@ -1669,18 +1669,22 @@ Obstacle: ${logObstacle}` : ''),
           headers: { Authorization: `Bearer ${googleToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
-        if (res.status === 401) { setGoogleToken(null); await handleGoogleSignIn(); break; }
+        if (res.status === 401) {
+          setGcalAdding(false);
+          setGoogleToken(null);
+          setAuthError('Google session expired — go to Space tab and reconnect to sync.');
+          setTimeout(() => setAuthError(null), 8000);
+          return;
+        }
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          console.error('Calendar API error:', res.status, err);
           setGcalAdding(false);
           setAuthError(`Calendar error ${res.status}: ${err?.error?.message ?? 'Unknown error'}`);
           return;
         }
       } catch (e) {
-        console.error('Calendar fetch failed:', e);
         setGcalAdding(false);
-        setAuthError('Network error adding to Calendar');
+        setAuthError('Network error — check your connection and try again.');
         return;
       }
     }
@@ -2740,8 +2744,10 @@ Obstacle: ${logObstacle}` : ''),
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
                     <SectionLabel title="Week ahead" sub={weekLabel(thisWeek)} />
                     {/* Google Calendar: add-all or connect */}
-                    <div style={{ flexShrink: 0, marginLeft: 12 }}>
-                      {authError && <p style={{ fontSize: '0.65rem', color: '#c00', marginBottom: 6 }}>{authError}</p>}
+                    <div style={{ flexShrink: 0, marginLeft: 12, maxWidth: 220 }}>
+                      {authError && (
+                        <div style={{ fontSize: '0.7rem', color: '#fff', backgroundColor: '#c00', padding: '6px 10px', marginBottom: 8, lineHeight: 1.4 }}>{authError}</div>
+                      )}
                       {gcalSuccess ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#16a34a', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '5px 10px' }}>
                           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="6.5" fill="#16a34a"/><path d="M3.5 6.5L5.5 8.5L9.5 4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
