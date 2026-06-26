@@ -22,8 +22,8 @@ const EF_AREAS: { key: EFKey; label: string; color: string; bg: string }[] = [
 ];
 
 const EF_LEVEL_LABELS: Record<number, string> = {
-  1: 'Beginning', 2: 'Developing', 3: 'Progressing',
-  4: 'Proficient', 5: 'Mastery',
+  1: 'Just starting', 2: 'Building', 3: 'Getting there',
+  4: 'Strong', 5: 'Owning it',
 };
 
 const AVATAR_COLORS: [string, string][] = [
@@ -32,7 +32,7 @@ const AVATAR_COLORS: [string, string][] = [
 ];
 
 type Task = { id: string; text: string; completed: boolean };
-type Session = { id: string; studentId: string; date: string; efRatings: Record<EFKey, number>; tasks: Task[]; notes: string };
+type Session = { id: string; studentId: string; date: string; efRatings: Record<EFKey, number>; tasks: Task[]; notes: string; selfRating?: number; selfNote?: string };
 type Student = { id: string; name: string; grade: string };
 type Habit = { id: string; studentId: string; text: string };
 type WeekGoal = { id: string; text: string; completed: boolean };
@@ -1489,6 +1489,32 @@ export default function Page() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
 
+  // ── Quick session log ────────────────────────────────────────────────────────
+  const [showLogSession, setShowLogSession] = useState(false);
+  const [logDate, setLogDate] = useState('');
+  const [logRatings, setLogRatings] = useState<Record<EFKey, number>>({ taskInitiation: 3, workingMemory: 3, timeManagement: 3 });
+  const [logNotes, setLogNotes] = useState('');
+
+  function openLogSession() {
+    setLogDate(new Date().toISOString().slice(0, 10));
+    setLogRatings({ taskInitiation: 3, workingMemory: 3, timeManagement: 3 });
+    setLogNotes('');
+    setShowLogSession(true);
+  }
+
+  function saveLogSession(studentId: string) {
+    const session: Session = {
+      id: `ses-${Date.now()}`,
+      studentId,
+      date: logDate || new Date().toISOString().slice(0, 10),
+      efRatings: logRatings,
+      tasks: [],
+      notes: logNotes,
+    };
+    setSessions(prev => [...prev, session]);
+    setShowLogSession(false);
+  }
+
   const handleGoogleSignIn = async () => {
     setAuthError(null);
     setSigningIn(true);
@@ -1521,7 +1547,7 @@ export default function Page() {
 
   // ── Student login / mode ─────────────────────────────────────────────────────
   const [studentMode, setStudentMode] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useLocalStorage<boolean>('ef-privacy-accepted', false);
   const [showPrivacy, setShowPrivacy] = useState(false);
 
   // ── Google Calendar integration ──────────────────────────────────────────────
@@ -2341,9 +2367,57 @@ export default function Page() {
       </div>
     ) : null;
 
+    // ── Log session modal ───────────────────────────────────────────────────────
+    const LogSessionModal = showLogSession ? (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: '#fff', width: '90%', maxWidth: 440, padding: '36px 32px', position: 'relative' }}>
+          <button onClick={() => setShowLogSession(false)} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', opacity: 0.4 }}><X size={16} /></button>
+          <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.35, marginBottom: 6 }}>Advisory</p>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 300, letterSpacing: '-0.03em', marginBottom: 28 }}>Log a session — {student.name.split(' ')[0]}</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>Date</p>
+              <input type="date" value={logDate} onChange={e => setLogDate(e.target.value)}
+                style={{ width: '100%', border: 'none', borderBottom: '1px solid #000', padding: '6px 0', fontSize: '0.95rem', background: 'transparent', outline: 'none', color: '#000' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 12 }}>EF Ratings</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {EF_AREAS.map(area => (
+                  <div key={area.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#000', opacity: 0.6, width: 110, flexShrink: 0 }}>{area.label}</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[1,2,3,4,5].map(v => (
+                        <button key={v} onClick={() => setLogRatings(r => ({ ...r, [area.key]: v }))}
+                          style={{ width: 32, height: 32, border: '1.5px solid', borderColor: logRatings[area.key] === v ? area.color : '#ddd', backgroundColor: logRatings[area.key] === v ? area.color : 'transparent', color: logRatings[area.key] === v ? '#fff' : '#000', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 120ms ease' }}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '0.65rem', color: area.color, fontWeight: 600, minWidth: 80 }}>{EF_LEVEL_LABELS[logRatings[area.key]]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.4, marginBottom: 8 }}>Session notes</p>
+              <textarea value={logNotes} onChange={e => setLogNotes(e.target.value)}
+                rows={3} placeholder="What did you work on? What did you notice?"
+                style={{ width: '100%', border: '1px solid #e5e5e5', padding: '10px 12px', fontSize: '0.85rem', resize: 'none', outline: 'none', backgroundColor: 'transparent', fontFamily: 'inherit', color: '#000' }} />
+            </div>
+            <button onClick={() => saveLogSession(student.id)}
+              style={{ width: '100%', padding: '12px 0', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              Save session
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
     return (
       <><EditorialShell theme={designTheme} className="h-screen flex flex-col overflow-hidden" style={{ background: designTheme.main.bg }}>
         {PrivacyOverlay}
+        {LogSessionModal}
 
         {/* ── Margin bugs ── */}
         {pixelMode && <MarginBugs names={students.map(st => st.name)} color={s.primary} opacity={0.22} />}
@@ -2393,11 +2467,18 @@ export default function Page() {
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {!studentMode && (
-                <button onClick={() => navigate(() => setView('personality'))}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
-                  style={{ borderColor: 'rgba(255,255,255,0.25)', color: '#fff' }}>
-                  <Smile size={12} /> Personalise
-                </button>
+                <>
+                  <button onClick={openLogSession}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
+                    style={{ borderColor: 'rgba(255,255,255,0.25)', color: '#fff', backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                    <Plus size={12} /> Log session
+                  </button>
+                  <button onClick={() => navigate(() => setView('personality'))}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border transition-opacity hover:opacity-70"
+                    style={{ borderColor: 'rgba(255,255,255,0.25)', color: '#fff' }}>
+                    <Smile size={12} /> Personalise
+                  </button>
+                </>
               )}
               {/* Student switcher — teacher only */}
               {!studentMode && students.filter(s => s.id !== student.id).slice(0, 4).map(s => {
@@ -2424,7 +2505,7 @@ export default function Page() {
               ['looking-back',  'Looking Back'],
               ['looking-ahead', 'Looking Ahead'],
               ['growth',        'Growth'],
-              ['drills',        'Drills'],
+              ['drills',        'My Toolkit'],
               ['space',         'Space'],
             ] as [StudentTab, string][]).map(([key, label]) => (
               <button key={key} onClick={() => switchStudentTab(key)}
@@ -2444,6 +2525,45 @@ export default function Page() {
 
             {studentTab === 'looking-back' && (
               <div className="space-y-4">
+                {/* Student self-rating — student mode only */}
+                {studentMode && (() => {
+                  const latestSelf = [...studentSessions].reverse().find(s => s.selfRating);
+                  const [selfRating, setSelfRating] = React.useState<number>(latestSelf?.selfRating ?? 0);
+                  const [selfNote, setSelfNote] = React.useState<string>(latestSelf?.selfNote ?? '');
+                  const SELF_EMOJIS = ['😩','😕','😐','😊','🔥'];
+                  const SELF_LABELS = ['Really hard','Tough week','Okay','Good week','Crushed it'];
+                  function saveSelfRating(rating: number) {
+                    setSelfRating(rating);
+                    const latest = [...studentSessions].reverse()[0];
+                    if (!latest) return;
+                    setSessions(prev => prev.map(s => s.id === latest.id ? { ...s, selfRating: rating, selfNote } : s));
+                  }
+                  function saveSelfNote() {
+                    const latest = [...studentSessions].reverse()[0];
+                    if (!latest || !selfNote.trim()) return;
+                    setSessions(prev => prev.map(s => s.id === latest.id ? { ...s, selfRating: selfRating || undefined, selfNote } : s));
+                  }
+                  return (
+                    <div style={{ ...cardStyle, borderLeft: `3px solid ${accent}` }}>
+                      <p style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: accent, marginBottom: 12 }}>Your take</p>
+                      <p style={{ fontSize: '0.85rem', fontWeight: 600, color: designTheme.main.body, marginBottom: 16 }}>How do YOU think this week went?</p>
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                        {SELF_EMOJIS.map((emoji, i) => (
+                          <button key={i} onClick={() => saveSelfRating(i + 1)}
+                            title={SELF_LABELS[i]}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '1.3rem', border: '1.5px solid', borderColor: selfRating === i + 1 ? accent : designTheme.main.cardBorder, backgroundColor: selfRating === i + 1 ? `${accent}15` : 'transparent', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 150ms ease' }}>
+                            <span>{emoji}</span>
+                            <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: selfRating === i + 1 ? accent : designTheme.main.body, opacity: selfRating === i + 1 ? 1 : 0.4 }}>{SELF_LABELS[i]}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <textarea value={selfNote} onChange={e => setSelfNote(e.target.value)} onBlur={saveSelfNote}
+                        rows={2} placeholder="What felt hard this week? What helped you push through?"
+                        style={{ width: '100%', border: 'none', borderBottom: `1px solid ${designTheme.main.cardBorder}`, padding: '6px 0', fontSize: '0.8rem', resize: 'none', outline: 'none', backgroundColor: 'transparent', fontFamily: 'inherit', color: designTheme.main.body }} />
+                    </div>
+                  );
+                })()}
+
                 {/* EF Skill bars */}
                 {latestSession ? (
                   <div style={{ ...cardStyle, marginBottom: 0, borderBottom: '1px solid #000', paddingBottom: 24 }}>
