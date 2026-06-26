@@ -41,6 +41,7 @@ type Obligation = { id: string; studentId: string; weekStart: string; text: stri
 type WidgetType = 'mood' | 'braindump' | 'gratitude' | 'personal-goal' | null;
 type ChunkStep = { id: string; text: string; done: boolean };
 type ChunkProject = { id: string; studentId: string; name: string; dueDate: string; steps: ChunkStep[] };
+type StrategyEntry = { id: string; studentId: string; text: string; date: string };
 type MoodEntry = { date: string; level: number; note: string };
 type ThemePreset = 'minimal' | 'bold' | 'cozy' | 'dark' | 'creative' | 'structured' | 'pixel';
 type ThemeLayout = 'sidebar' | 'header';
@@ -1412,6 +1413,7 @@ export default function Page() {
   const [weekEntries, setWeekEntries] = useLocalStorage<WeekEntry[]>('ef-week-entries', SEED_WEEK_ENTRIES);
   const [obligations, setObligations] = useLocalStorage<Obligation[]>('ef-obligations', SEED_OBLIGATIONS);
   const [chunkProjects, setChunkProjects] = useLocalStorage<ChunkProject[]>('ef-chunk-projects', []);
+  const [strategies, setStrategies] = useLocalStorage<StrategyEntry[]>('ef-strategies', []);
   const [widgetChoices, setWidgetChoices] = useLocalStorage<Record<string, WidgetType>>('ef-widget-choices', {});
   const [widgetData, setWidgetData] = useLocalStorage<Record<string, Record<string, unknown>>>('ef-widget-data', {});
   const [studentThemes, setStudentThemes] = useLocalStorage<Record<string, StudentTheme>>('ef-student-themes', {});
@@ -2664,22 +2666,42 @@ export default function Page() {
                           </div>
                         </div>
                       )}
-                      {studentHabits.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5 mt-3" style={{ color: designTheme.main.body, opacity: 0.5 }}>Habits</p>
-                          <div className="space-y-1.5">
-                            {studentHabits.map(h => {
-                              const checked = lastWeekEntry.habitChecks.includes(h.id);
-                              return (
-                                <div key={h.id} onClick={() => toggleLastHabit(h.id)} className="flex items-center gap-2.5 cursor-pointer group">
-                                  {checked ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" /> : <Circle size={16} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 transition-colors" />}
-                                  <span className={`text-sm ${checked ? 'line-through text-stone-400' : ''}`} style={{ color: checked ? undefined : designTheme.main.body }}>{h.text}</span>
-                                </div>
-                              );
-                            })}
+                      {studentHabits.length > 0 && (() => {
+                        // Compute streak for each habit: consecutive weeks (sorted desc) where it was checked
+                        const sortedEntries = weekEntries
+                          .filter(e => e.studentId === student.id)
+                          .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+                        function habitStreak(habitId: string): number {
+                          let streak = 0;
+                          for (const entry of sortedEntries) {
+                            if (entry.habitChecks.includes(habitId)) streak++;
+                            else break;
+                          }
+                          return streak;
+                        }
+                        return (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5 mt-3" style={{ color: designTheme.main.body, opacity: 0.5 }}>Habits</p>
+                            <div className="space-y-1.5">
+                              {studentHabits.map(h => {
+                                const checked = lastWeekEntry.habitChecks.includes(h.id);
+                                const streak = habitStreak(h.id);
+                                return (
+                                  <div key={h.id} onClick={() => toggleLastHabit(h.id)} className="flex items-center gap-2.5 cursor-pointer group">
+                                    {checked ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" /> : <Circle size={16} className="text-stone-300 group-hover:text-stone-400 flex-shrink-0 transition-colors" />}
+                                    <span className={`text-sm flex-1 ${checked ? 'line-through text-stone-400' : ''}`} style={{ color: checked ? undefined : designTheme.main.body }}>{h.text}</span>
+                                    {streak >= 2 && (
+                                      <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#ea580c', flexShrink: 0 }}>
+                                        🔥 {streak}w
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -2809,8 +2831,20 @@ export default function Page() {
                 ? EF_AREAS.map(area => ({ area, delta: latestSession.efRatings[area.key] - studentSessions[0].efRatings[area.key] })).filter(x => x.delta > 0)
                 : [];
               return !latestSession ? (
-                <div style={{ ...cardStyle, textAlign: 'center', padding: 32 }}>
-                  <p className="text-sm text-stone-400">Nothing to chart yet — add sessions to track growth</p>
+                <div style={{ ...cardStyle, textAlign: 'center', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ fontSize: '2rem' }}>📈</div>
+                  <p style={{ fontSize: '0.95rem', fontWeight: 600, color: designTheme.main.body }}>
+                    {student.name.split(' ')[0]}'s growth chart starts here
+                  </p>
+                  <p style={{ fontSize: '0.8rem', color: designTheme.main.body, opacity: 0.5, maxWidth: 260, lineHeight: 1.6 }}>
+                    Log your first session to start tracking progress over time.
+                  </p>
+                  {!studentMode && (
+                    <button onClick={openLogSession}
+                      style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: '#000', color: '#fff', border: 'none', fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                      <Plus size={12} /> Log first session
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -2904,10 +2938,23 @@ export default function Page() {
               </div>
             )}
 
-            {studentTab === 'space' && (
+            {studentTab === 'space' && (() => {
+              const myStrategies = strategies.filter(s => s.studentId === student.id);
+              const [newStrategy, setNewStrategy] = React.useState('');
+              function addStrategy() {
+                if (!newStrategy.trim()) return;
+                setStrategies(prev => [...prev, { id: `str-${Date.now()}`, studentId: student.id, text: newStrategy.trim(), date: new Date().toISOString().slice(0, 10) }]);
+                setNewStrategy('');
+              }
+              function removeStrategy(id: string) {
+                setStrategies(prev => prev.filter(s => s.id !== id));
+              }
+              return (
               <div className="space-y-4">
+
+                {/* My widget */}
                 <div style={cardStyle}>
-                  <SectionLabel title="My space" sub="Yours to customize" />
+                  <SectionLabel title="My widget" sub="Pick one thing to track" />
                   <CustomWidget
                     studentId={student.id}
                     choice={widgetChoices[student.id] ?? null}
@@ -2917,8 +2964,40 @@ export default function Page() {
                   />
                 </div>
 
+                {/* What works for me — strategy log */}
+                <div style={cardStyle}>
+                  <SectionLabel title="What works for me" sub="Strategies you've found that actually help" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: myStrategies.length > 0 ? 12 : 0 }}>
+                    {myStrategies.map(s => (
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', backgroundColor: `${accent}08`, border: `1px solid ${accent}20` }}>
+                        <Star size={13} style={{ color: accent, flexShrink: 0, marginTop: 2 }} />
+                        <span style={{ fontSize: '0.85rem', color: designTheme.main.body, flex: 1, lineHeight: 1.5 }}>{s.text}</span>
+                        <button onClick={() => removeStrategy(s.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.3, padding: 0, flexShrink: 0 }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}>
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      style={{ flex: 1, border: 'none', borderBottom: `1px solid ${designTheme.main.cardBorder}`, padding: '7px 0', fontSize: '0.85rem', outline: 'none', backgroundColor: 'transparent', color: designTheme.main.body, fontFamily: 'inherit' }}
+                      placeholder="e.g. Timer helps me start homework faster"
+                      value={newStrategy}
+                      onChange={e => setNewStrategy(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addStrategy()} />
+                    <button onClick={addStrategy}
+                      style={{ padding: '7px 12px', backgroundColor: newStrategy.trim() ? '#000' : '#e5e5e5', color: newStrategy.trim() ? '#fff' : '#999', border: 'none', cursor: newStrategy.trim() ? 'pointer' : 'default', transition: 'all 150ms ease' }}>
+                      <Plus size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* My look */}
                 {theme ? (
                   <div style={cardStyle}>
+                    <SectionLabel title="My look" sub="Your dashboard, your style" />
                     <ThemeCustomizer
                       theme={theme}
                       studentName={student.name}
@@ -2931,8 +3010,8 @@ export default function Page() {
                     className="w-full border-2 border-dashed p-6 text-sm font-medium transition-opacity hover:opacity-70 flex flex-col items-center gap-2"
                     style={{ borderColor: `${accent}50`, color: accent }}>
                     <Smile size={22} />
-                    <span>Personalize this dashboard with AI</span>
-                    <span className="text-xs font-normal opacity-70">Answer a few questions to generate a theme that's uniquely yours</span>
+                    <span>Make it yours with AI</span>
+                    <span className="text-xs font-normal opacity-70">Answer a few questions and we'll build a theme that feels like you</span>
                   </button>
                 )}
 
@@ -2982,7 +3061,8 @@ export default function Page() {
                   </p>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
           </div>
         </main>
